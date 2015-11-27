@@ -205,9 +205,9 @@ Lorenz.curves = (function(ncurves) {
     var orig = [Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5];
     for (var i = 0; i < ncurves; i++) {
         curves.push(new Lorenz([
-            orig[0] + (Math.random() - 0.5) / 10,
-            orig[1] + (Math.random() - 0.5) / 10,
-            orig[2] + (Math.random() - 0.5) / 10,
+            orig[0] + (Math.random() - 0.5) / 100,
+            orig[1] + (Math.random() - 0.5) / 100,
+            orig[2] + (Math.random() - 0.5) / 100,
         ]));
     }
     function go() {
