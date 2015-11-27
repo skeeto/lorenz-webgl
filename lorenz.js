@@ -36,6 +36,8 @@ Lorenz.colors = [
     [0xff, 0xff, 0xff]
 ];
 
+Lorenz.scale = 1 / 25;
+
 Lorenz.sigma = 10;
 Lorenz.beta = 8 / 3;
 Lorenz.rho = 28;
@@ -74,12 +76,19 @@ Lorenz.igloo = (function() {
 }());
 
 Lorenz.programs = {
-    line: Lorenz.igloo.program('identity.vert', 'tail.frag'),
-    head: Lorenz.igloo.program('identity.vert', 'head.frag')
+    line: Lorenz.igloo.program('tail.vert', 'tail.frag'),
+    head: Lorenz.igloo.program('head.vert', 'head.frag')
 };
 
 Lorenz.clear = function() {
     var gl = Lorenz.igloo.gl;
+    var width = gl.canvas.clientWidth;
+    var height = gl.canvas.clientHeight;
+    if (gl.canvas.width != width || gl.canvas.height != height) {
+        gl.canvas.width = width;
+        gl.canvas.height = height;
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    }
     gl.clear(gl.COLOR_BUFFER_BIT);
 };
 
@@ -100,6 +109,7 @@ Lorenz.prototype.drawTail = function() {
     Lorenz.programs.line.use()
         .attrib('point', this.buffers.tail, 3)
         .attrib('index', this.buffers.index, 1)
+        .uniform('scale', Lorenz.scale)
         .uniform('color', this.color)
         .uniform('len', this.tail.length)
         .uniform('start', this.tail.i - 1)
@@ -111,6 +121,7 @@ Lorenz.prototype.drawHead = function() {
     this.buffers.head.update(this.y);
     Lorenz.programs.head.use()
         .attrib('point', this.buffers.head, 3)
+        .uniform('scale', Lorenz.scale)
         .uniform('color', this.color)
         .draw(gl.POINTS, 1);
 };
