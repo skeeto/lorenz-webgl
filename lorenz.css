@@ -1,0 +1,10 @@
+body {
+    font-family: sans-serif;
+    background: black;
+    width: 800px;
+    margin: auto;
+}
+
+canvas {
+    border: 1px solid gray;
+}
