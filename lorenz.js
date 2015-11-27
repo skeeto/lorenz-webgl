@@ -37,6 +37,8 @@ Lorenz.colors = [
 ];
 
 Lorenz.scale = 1 / 25;
+Lorenz.rotation = [1.65, 3.08, -0.93];
+Lorenz.translation = [-0.03, -0.07, 1.81];
 
 Lorenz.sigma = 10;
 Lorenz.beta = 8 / 3;
@@ -50,7 +52,7 @@ Lorenz.lorenz = function(y, h) {
         return [sigma * (y[1] - y[0]),
                 y[0] * (rho - y[2]) - y[1],
                 y[0] * y[1] - beta * y[2]];
-    };    
+    };
     function add3(a, b) {
         return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
     }
@@ -72,12 +74,39 @@ Lorenz.igloo = (function() {
     gl.clearColor(0.1, 0.1, 0.1, 1);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    var last = null;
+    igloo.gl.canvas.addEventListener('mousemove', function(e) {
+        if (last) {
+            if (e.buttons & 4) {
+                var scale = 1 / 100;
+                if (e.shiftKey)
+                    Lorenz.translation[2] += (last.y - e.pageY) * scale;
+                else
+                    Lorenz.translation[0] += (last.x - e.pageX) * -scale;
+                Lorenz.translation[1] += (last.y - e.pageY) * scale;       
+            } else if (e.buttons) {
+                var scale = 1 / 100;
+                if (e.shiftKey)
+                    Lorenz.rotation[2] += (last.x - e.pageX) * scale;
+                else
+                    Lorenz.rotation[1] += (last.x - e.pageX) * -scale;
+                Lorenz.rotation[0] += (last.y - e.pageY) * scale;
+            }
+        }
+        last = {x: e.pageX, y: e.pageY};
+    });
+    igloo.gl.canvas.addEventListener('DOMMouseScroll', function(e) {
+        Lorenz.scale *= e.detail > 0 ? 0.95 : 1.1;
+    });
+    igloo.gl.canvas.addEventListener('mousewheel', function(e) {
+        Lorenz.scale *= e.wheelDelta < 0 ? 0.95 : 1.1;
+    });
     return igloo;
 }());
 
 Lorenz.programs = {
     line: Lorenz.igloo.program('tail.vert', 'tail.frag'),
-    head: Lorenz.igloo.program('head.vert', 'head.frag')
+    head: Lorenz.igloo.program('tail.vert', 'head.frag')
 };
 
 Lorenz.clear = function() {
@@ -90,6 +119,10 @@ Lorenz.clear = function() {
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     }
     gl.clear(gl.COLOR_BUFFER_BIT);
+};
+
+Lorenz.aspect = function() {
+    return Lorenz.igloo.gl.canvas.width / Lorenz.igloo.gl.canvas.height;
 };
 
 Lorenz.prototype.step = function(t) {
@@ -109,7 +142,10 @@ Lorenz.prototype.drawTail = function() {
     Lorenz.programs.line.use()
         .attrib('point', this.buffers.tail, 3)
         .attrib('index', this.buffers.index, 1)
+        .uniform('aspect', Lorenz.aspect())
         .uniform('scale', Lorenz.scale)
+        .uniform('rotation', Lorenz.rotation)
+        .uniform('translation', Lorenz.translation)
         .uniform('color', this.color)
         .uniform('len', this.tail.length)
         .uniform('start', this.tail.i - 1)
@@ -121,7 +157,10 @@ Lorenz.prototype.drawHead = function() {
     this.buffers.head.update(this.y);
     Lorenz.programs.head.use()
         .attrib('point', this.buffers.head, 3)
+        .uniform('aspect', Lorenz.aspect())
         .uniform('scale', Lorenz.scale)
+        .uniform('rotation', Lorenz.rotation)
+        .uniform('translation', Lorenz.translation)
         .uniform('color', this.color)
         .draw(gl.POINTS, 1);
 };
@@ -154,17 +193,17 @@ var curves = (function(ncurves) {
     var orig = [Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5];
     for (var i = 0; i < ncurves; i++) {
         curves.push(new Lorenz([
-            orig[0] + (Math.random() - 0.5) / 10000,
-            orig[1] + (Math.random() - 0.5) / 10000,
-            orig[2] + (Math.random() - 0.5) / 10000,
+            orig[0] + (Math.random() - 0.5) / 100,
+            orig[1] + (Math.random() - 0.5) / 100,
+            orig[2] + (Math.random() - 0.5) / 100,
         ]));
     }
     function go() {
         Lorenz.clear();
         for (var i = 0; i < curves.length; i++) {
-            curves[i].step(0.004);
-            curves[i].step(0.004);
-            curves[i].step(0.004);
+            curves[i].step(0.002);
+            curves[i].step(0.002);
+            curves[i].step(0.002);
             curves[i].drawTail();
         }
         for (var i = 0; i < curves.length; i++) {
