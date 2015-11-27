@@ -12,7 +12,7 @@ function Lorenz(y) {
         length: 0
     };
     this.trim(500);
-    this.color = Lorenz.colors[Lorenz.colori++ % Lorenz.colors.length];
+    this.color = Lorenz.colors[Lorenz.colori++ % Lorenz.colors.length].slice(0);
     this.color[0] = this.color[0] / 255;
     this.color[1] = this.color[1] / 255;
     this.color[2] = this.color[2] / 255;
