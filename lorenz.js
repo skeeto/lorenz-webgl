@@ -40,6 +40,8 @@ Lorenz.scale = 1 / 25;
 Lorenz.rotation = [1.65, 3.08, -0.93];
 Lorenz.translation = [-0.03, -0.07, 1.81];
 
+Lorenz.paused = false;
+
 Lorenz.sigma = 10;
 Lorenz.beta = 8 / 3;
 Lorenz.rho = 28;
@@ -87,9 +89,9 @@ Lorenz.igloo = (function() {
             } else if (e.buttons) {
                 var scale = 1 / 100;
                 if (e.shiftKey)
-                    Lorenz.rotation[2] += (last.x - e.pageX) * scale;
+                    Lorenz.rotation[1] += (last.x - e.pageX) * scale;
                 else
-                    Lorenz.rotation[1] += (last.x - e.pageX) * -scale;
+                    Lorenz.rotation[2] += (last.x - e.pageX) * -scale;
                 Lorenz.rotation[0] += (last.y - e.pageY) * scale;
             }
         }
@@ -100,6 +102,16 @@ Lorenz.igloo = (function() {
     });
     igloo.gl.canvas.addEventListener('mousewheel', function(e) {
         Lorenz.scale *= e.wheelDelta < 0 ? 0.95 : 1.1;
+    });
+    window.addEventListener('keypress', function(e) {
+        if (e.which == 'a'.charCodeAt(0))
+            Lorenz.addRandom();
+        else if (e.which == 'c'.charCodeAt(0))
+            Lorenz.addClone();
+        else if (e.which == 'C'.charCodeAt(0))
+            Lorenz.clearAll();
+        else if (e.which == ' '.charCodeAt(0))
+            Lorenz.paused = !Lorenz.paused;
     });
     return igloo;
 }());
@@ -201,9 +213,11 @@ Lorenz.curves = (function(ncurves) {
     function go() {
         Lorenz.clear();
         for (var i = 0; i < curves.length; i++) {
-            curves[i].step(0.002);
-            curves[i].step(0.002);
-            curves[i].step(0.002);
+            if (!Lorenz.paused) {
+                curves[i].step(0.002);
+                curves[i].step(0.002);
+                curves[i].step(0.002);
+            }
             curves[i].drawTail();
         }
         for (var i = 0; i < curves.length; i++) {
@@ -214,6 +228,8 @@ Lorenz.curves = (function(ncurves) {
     go();
     return curves;
 }(Lorenz.colors.length));
+
+/* High-level Utility Functions */
 
 Lorenz.trimAll = function(length) {
     Lorenz.curves.forEach(function(c) {
@@ -230,3 +246,15 @@ Lorenz.addRandom = function() {
     Lorenz.curves.push(new Lorenz(y));
 };
 
+Lorenz.addClone = function() {
+    var i = Math.floor(Math.random() * Lorenz.curves.length);
+    var y = Lorenz.curves[i].y.slice(0);
+    y[0] += (Math.random() - 0.5) / 10000;
+    y[1] += (Math.random() - 0.5) / 10000;
+    y[2] += (Math.random() - 0.5) / 10000;
+    Lorenz.curves.push(new Lorenz(y));
+};
+
+Lorenz.clearAll = function() {
+    Lorenz.curves.length = 0;
+};
