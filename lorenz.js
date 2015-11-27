@@ -188,14 +188,14 @@ Lorenz.prototype.trim = function(length) {
     this.buffers.index.update(index);
 };
 
-var curves = (function(ncurves) {
+Lorenz.curves = (function(ncurves) {
     var curves = [];
     var orig = [Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5];
     for (var i = 0; i < ncurves; i++) {
         curves.push(new Lorenz([
-            orig[0] + (Math.random() - 0.5) / 100,
-            orig[1] + (Math.random() - 0.5) / 100,
-            orig[2] + (Math.random() - 0.5) / 100,
+            orig[0] + (Math.random() - 0.5) / 10,
+            orig[1] + (Math.random() - 0.5) / 10,
+            orig[2] + (Math.random() - 0.5) / 10,
         ]));
     }
     function go() {
@@ -215,8 +215,18 @@ var curves = (function(ncurves) {
     return curves;
 }(Lorenz.colors.length));
 
-function trimAll(length) {
-    curves.forEach(function(c) {
+Lorenz.trimAll = function(length) {
+    Lorenz.curves.forEach(function(c) {
         c.trim(length);
     });
-}
+};
+
+Lorenz.addRandom = function() {
+    var y = [
+        Math.random() * 50,
+        Math.random() * 50,
+        Math.random() * 50,
+    ];
+    Lorenz.curves.push(new Lorenz(y));
+};
+
