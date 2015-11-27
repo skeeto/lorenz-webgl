@@ -1,49 +1,23 @@
-function lorenz(y) {
-    var sigma = 10;
-    var beta = 8 / 3;
-    var rho = 28;
-    return [sigma * (y[1] - y[0]),
-            y[0] * (rho - y[2]) - y[1],
-            y[0] * y[1] - beta * y[2]];
-}
-
-function rk4(f, y, h) {
-    function add3(a, b) {
-        return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-    }
-
-    function scale3(v, s) {
-        return [v[0] * s, v[1] * s, v[2] * s];
-    }
-    var k1 = f(y);
-    var k2 = f(add3(y, scale3(k1, h / 2)));
-    var k3 = f(add3(y, scale3(k2, h / 2)));
-    var k4 = f(add3(y, scale3(k3, h)));
-    var sum = add3(add3(k1, scale3(k2, 2)), add3(scale3(k3, 3), k4));
-    return add3(y, scale3(sum, h / 6));
-};
-
-function $(s) {
-    /* dumb jQuery polyfill */
-    return [document.querySelector(s)];
-};
-
 function Lorenz(y) {
     var igloo = Lorenz.igloo;
     this.buffers = {
         tail: igloo.array(),
+        index: igloo.array(),
         head: igloo.array()
     };
     this.y = y;
-    this.tail = y.slice(0);
+    this.tail = {
+        i: 0,
+        values: [],
+        length: 0
+    };
+    this.trim(500);
     this.color = Lorenz.colors[Lorenz.colori++ % Lorenz.colors.length];
     this.color[0] = this.color[0] / 255;
     this.color[1] = this.color[1] / 255;
     this.color[2] = this.color[2] / 255;
     this.tick = 0;
 }
-
-Lorenz.prototype.length = 100;
 
 Lorenz.colori = 0;
 Lorenz.colors = [
@@ -62,8 +36,36 @@ Lorenz.colors = [
     [0xff, 0xff, 0xff]
 ];
 
+Lorenz.sigma = 10;
+Lorenz.beta = 8 / 3;
+Lorenz.rho = 28;
+
+Lorenz.lorenz = function(y, h) {
+    var sigma = Lorenz.sigma;
+    var beta = Lorenz.beta;
+    var rho = Lorenz.rho;
+    function f(y) {
+        return [sigma * (y[1] - y[0]),
+                y[0] * (rho - y[2]) - y[1],
+                y[0] * y[1] - beta * y[2]];
+    };    
+    function add3(a, b) {
+        return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+    }
+    function scale3(v, s) {
+        return [v[0] * s, v[1] * s, v[2] * s];
+    }
+    /* RK4 integration */
+    var k1 = f(y);
+    var k2 = f(add3(y, scale3(k1, h / 2)));
+    var k3 = f(add3(y, scale3(k2, h / 2)));
+    var k4 = f(add3(y, scale3(k3, h)));
+    var sum = add3(add3(k1, scale3(k2, 2)), add3(scale3(k3, 3), k4));
+    return add3(y, scale3(sum, h / 6));
+};
+
 Lorenz.igloo = (function() {
-    var igloo = new Igloo($('#lorenz')[0]);
+    var igloo = new Igloo(document.querySelector('#lorenz'));
     var gl = igloo.gl;
     gl.clearColor(0.1, 0.1, 0.1, 1);
     gl.enable(gl.BLEND);
@@ -76,28 +78,32 @@ Lorenz.programs = {
     head: Lorenz.igloo.program('identity.vert', 'head.frag')
 };
 
-Lorenz.prototype.step = function(t) {
-    this.tick++;
-    this.y = rk4(lorenz, this.y, t);
-    this.tail.push(this.y[0]);
-    this.tail.push(this.y[1]);
-    this.tail.push(this.y[2]);
-    if (this.tail.length > this.length * 3)
-        this.tail = this.tail.slice(this.length * -3);
-};
-
-Lorenz.prototype.clear = function() {
+Lorenz.clear = function() {
     var gl = Lorenz.igloo.gl;
     gl.clear(gl.COLOR_BUFFER_BIT);
 };
 
+Lorenz.prototype.step = function(t) {
+    this.tick++;
+    this.y = Lorenz.lorenz(this.y, t);
+    this.tail.values[this.tail.i * 3 + 0] = this.y[0];
+    this.tail.values[this.tail.i * 3 + 1] = this.y[1];
+    this.tail.values[this.tail.i * 3 + 2] = this.y[2];
+    this.tail.i = (this.tail.i + 1) % (this.tail.values.length / 3);
+    if (this.tail.length < this.tail.values.length / 3)
+        this.tail.length++;
+};
+
 Lorenz.prototype.drawTail = function() {
     var gl = Lorenz.igloo.gl;
-    this.buffers.tail.update(this.tail);
+    this.buffers.tail.update(this.tail.values);
     Lorenz.programs.line.use()
         .attrib('point', this.buffers.tail, 3)
+        .attrib('index', this.buffers.index, 1)
         .uniform('color', this.color)
-        .draw(gl.LINE_STRIP, this.tail.length / 3);
+        .uniform('len', this.tail.length)
+        .uniform('start', this.tail.i - 1)
+        .draw(gl.LINE_LOOP, this.tail.length);
 };
 
 Lorenz.prototype.drawHead = function() {
@@ -107,6 +113,24 @@ Lorenz.prototype.drawHead = function() {
         .attrib('point', this.buffers.head, 3)
         .uniform('color', this.color)
         .draw(gl.POINTS, 1);
+};
+
+Lorenz.prototype.trim = function(length) {
+    var values = new Array(length * 3);
+    var newlen = Math.min(length, this.tail.length);
+    for (var n = 0; n < newlen; n++) {
+        var ni = (this.tail.i + n) % (this.tail.values.length / 3);
+        values[n * 3 + 0] = this.tail.values[ni * 3 + 0];
+        values[n * 3 + 1] = this.tail.values[ni * 3 + 1];
+        values[n * 3 + 2] = this.tail.values[ni * 3 + 2];
+    }
+    this.tail.values = values;
+    this.tail.i = newlen;
+    this.tail.length = newlen;
+    var index = new Array(length);
+    for (var i = 0; i < length; i++)
+        index[i] = i;
+    this.buffers.index.update(index);
 };
 
 var curves = (function(ncurves) {
@@ -120,7 +144,7 @@ var curves = (function(ncurves) {
         ]));
     }
     function go() {
-        curves[0].clear();
+        Lorenz.clear();
         for (var i = 0; i < curves.length; i++) {
             curves[i].step(0.004);
             curves[i].step(0.004);
