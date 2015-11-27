@@ -89,9 +89,9 @@ Lorenz.igloo = (function() {
             } else if (e.buttons) {
                 var scale = 1 / 100;
                 if (e.shiftKey)
-                    Lorenz.rotation[1] += (last.x - e.pageX) * scale;
+                    Lorenz.rotation[1] += (last.x - e.pageX) * -scale;
                 else
-                    Lorenz.rotation[2] += (last.x - e.pageX) * -scale;
+                    Lorenz.rotation[2] += (last.x - e.pageX) * scale;
                 Lorenz.rotation[0] += (last.y - e.pageY) * scale;
             }
         }
