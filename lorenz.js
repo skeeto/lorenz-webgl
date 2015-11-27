@@ -78,7 +78,7 @@ Lorenz.igloo = (function() {
     igloo.gl.canvas.addEventListener('mousemove', function(e) {
         if (last) {
             if (e.buttons & 4) {
-                var scale = 1 / 100;
+                var scale = 1 / 200;
                 if (e.shiftKey)
                     Lorenz.translation[2] += (last.y - e.pageY) * scale;
                 else
