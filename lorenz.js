@@ -127,19 +127,24 @@ Lorenz.prototype.drawHead = function() {
 };
 
 Lorenz.prototype.trim = function(length) {
-    var values = new Array(length * 3);
+    function mod(x, y) {
+        // properly handles negatives
+        return x - y * Math.floor(x / y);
+    }
+    var values = new Float32Array(length * 3);
     var newlen = Math.min(length, this.tail.length);
     for (var n = 0; n < newlen; n++) {
-        var ni = (this.tail.i + n) % (this.tail.values.length / 3);
-        values[n * 3 + 0] = this.tail.values[ni * 3 + 0];
-        values[n * 3 + 1] = this.tail.values[ni * 3 + 1];
-        values[n * 3 + 2] = this.tail.values[ni * 3 + 2];
+        var i = mod(this.tail.i - n - 1, this.tail.values.length / 3);
+        var o = newlen - n - 1;
+        values[o * 3 + 0] = this.tail.values[i * 3 + 0];
+        values[o * 3 + 1] = this.tail.values[i * 3 + 1];
+        values[o * 3 + 2] = this.tail.values[i * 3 + 2];
     }
+    this.tail.i = newlen % (values.length / 3);
     this.tail.values = values;
-    this.tail.i = newlen;
     this.tail.length = newlen;
-    var index = new Array(length);
-    for (var i = 0; i < length; i++)
+    var index = new Array(this.tail.values.length / 3);
+    for (var i = 0; i < index.length; i++)
         index[i] = i;
     this.buffers.index.update(index);
 };
@@ -170,3 +175,9 @@ var curves = (function(ncurves) {
     go();
     return curves;
 }(Lorenz.colors.length));
+
+function trimAll(length) {
+    curves.forEach(function(c) {
+        c.trim(length);
+    });
+}
