@@ -157,7 +157,6 @@ Lorenz.igloo = (function() {
         Lorenz.scale *= e.wheelDelta < 0 ? 0.95 : 1.1;
     });
     window.addEventListener('keypress', function(e) {
-        e.preventDefault();
         if (e.which == 'a'.charCodeAt(0))
             Lorenz.addRandom();
         else if (e.which == 'c'.charCodeAt(0))
