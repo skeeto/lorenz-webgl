@@ -97,5 +97,5 @@ void main() {
     if (line_position < 1.5 || line_position > len - 1.5)
         line_position = 0.0; // trim loop connection
     fade = pow(line_position / len, 1.2);
-    gl_PointSize = 200.0 * scale;
+    gl_PointSize = 160.0 * scale;
 }

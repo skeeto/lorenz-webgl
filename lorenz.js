@@ -41,6 +41,7 @@ Lorenz.rotation = [1.65, 3.08, -0.93];
 Lorenz.translation = [-0.03, -0.07, 1.81];
 
 Lorenz.paused = false;
+Lorenz.showHeads = true;
 
 Lorenz.sigma = 10;
 Lorenz.beta = 8 / 3;
@@ -112,6 +113,8 @@ Lorenz.igloo = (function() {
             Lorenz.clearAll();
         else if (e.which == ' '.charCodeAt(0))
             Lorenz.paused = !Lorenz.paused;
+        else if (e.which == 'h'.charCodeAt(0))
+            Lorenz.showHeads = !Lorenz.showHeads;
     });
     return igloo;
 }());
@@ -220,9 +223,9 @@ Lorenz.curves = (function(ncurves) {
             }
             curves[i].drawTail();
         }
-        for (var i = 0; i < curves.length; i++) {
-            curves[i].drawHead();
-        }
+        if (Lorenz.showHeads)
+            for (var i = 0; i < curves.length; i++) 
+                curves[i].drawHead();
         requestAnimationFrame(go);
     }
     go();

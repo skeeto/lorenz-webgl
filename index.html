@@ -7,7 +7,49 @@
     <link rel="stylesheet" href="lorenz.css"/>
   </head>
   <body>
+    <div id="help">
+      <ul>
+        <li><kbd></kbd>
+          <label>left-click + drag: rotate X/Y</label>
+        </li>
+        <li><kbd></kbd>
+          <label>middle-click + drag: translate X/Y</label>
+        </li>
+        <li><kbd></kbd>
+          <label>shift + click + drag: rotate/translate Z</label>
+        </li>
+        <li><kbd></kbd>
+          <label>mousewheel: zoom in/out</label>
+        </li>
+        <li><kbd></kbd>
+          <label>spacebar pauses/unpauses</label>
+        </li>
+        <li><kbd>a</kbd>
+          <label>add solution with random initial value</label>
+        </li>
+        <li><kbd>c</kbd>
+          <label>clone a solution with perturbation</label>
+        </li>
+        <li><kbd>C</kbd>
+          <label>clear all solutions</label>
+        </li>
+        <li><kbd>h</kbd>
+          <label>toggle head (point) visibility</label>
+        </li>
+        <li><kbd>?</kbd>
+          <label>toggle this menu</label>
+        </li>
+      </ul>
+    </div>
     <canvas id="lorenz"/>
     <script src="lorenz.js" defer></script>
+    <script>
+      window.addEventListener('keypress', function(e) {
+          if (e.which === '?'.charCodeAt(0)) {
+              var h = document.querySelector('#help');
+              h.style.display = h.style.display == 'none' ? 'block' : 'none';
+          }
+      });
+    </script>
   </body>
 </html>
