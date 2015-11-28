@@ -97,6 +97,9 @@ Lorenz.igloo = (function() {
                     Lorenz.translation[0] += dx * -scale;
                 Lorenz.translation[1] += dy * scale;
             } else if (e.buttons) {
+                Lorenz.rotationd[0] = 0;
+                Lorenz.rotationd[1] = 0;
+                Lorenz.rotationd[2] = 0;
                 var scale = 1 / 100;
                 if (e.shiftKey)
                     Lorenz.rotation[1] += dx * -scale;
@@ -129,6 +132,9 @@ Lorenz.igloo = (function() {
             t: Date.now() / 1000
         };
         if (last) {
+            Lorenz.rotationd[0] = 0;
+            Lorenz.rotationd[1] = 0;
+            Lorenz.rotationd[2] = 0;
             var scale = 1 / 100;
             Lorenz.rotation[2] += (last.x - p.x) * scale;
             Lorenz.rotation[0] += (last.y - p.y) * scale;
