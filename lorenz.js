@@ -38,6 +38,7 @@ Lorenz.colors = [
 
 Lorenz.scale = 1 / 25;
 Lorenz.rotation = [1.65, 3.08, -0.93];
+Lorenz.rotationd = [0, 0, 0];
 Lorenz.translation = [-0.03, -0.07, 1.81];
 
 Lorenz.paused = false;
@@ -77,26 +78,60 @@ Lorenz.igloo = (function() {
     gl.clearColor(0.1, 0.1, 0.1, 1);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    var lastlast = null;
     var last = null;
+    var lastbuttons = null;
     igloo.gl.canvas.addEventListener('mousemove', function(e) {
+        var p = {x: e.pageX, y: e.pageY};
         if (last) {
+            var dy = (last.y - p.y);
+            var dx = (last.x - p.x);
             if (e.buttons & 4) {
                 var scale = 1 / 200;
                 if (e.shiftKey)
-                    Lorenz.translation[2] += (last.y - e.pageY) * scale;
+                    Lorenz.translation[2] += dy * scale;
                 else
-                    Lorenz.translation[0] += (last.x - e.pageX) * -scale;
-                Lorenz.translation[1] += (last.y - e.pageY) * scale;       
+                    Lorenz.translation[0] += dx * -scale;
+                Lorenz.translation[1] += dy * scale;       
             } else if (e.buttons) {
                 var scale = 1 / 100;
                 if (e.shiftKey)
-                    Lorenz.rotation[1] += (last.x - e.pageX) * -scale;
+                    Lorenz.rotation[1] += dx * -scale;
                 else
-                    Lorenz.rotation[2] += (last.x - e.pageX) * scale;
-                Lorenz.rotation[0] += (last.y - e.pageY) * scale;
+                    Lorenz.rotation[2] += dx * scale;
+                Lorenz.rotation[0] += dy * scale;
             }
         }
-        last = {x: e.pageX, y: e.pageY};
+        lastbuttons = e.buttons;
+        lastlast = last;
+        last = p;
+    });
+    igloo.gl.canvas.addEventListener('mouseup', function(e) {
+        var scale = 1 / 100;
+        if (lastlast && !(lastbuttons & 4)) {
+            Lorenz.rotationd[2] = (lastlast.x - last.x) * scale;
+            Lorenz.rotationd[0] = (lastlast.y - last.y) * scale;
+        }
+        last = null;
+    });
+    igloo.gl.canvas.addEventListener('touchmove', function(e) {
+        var p = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+        console.log(p);
+        if (last) {
+            var scale = 1 / 100;
+            Lorenz.rotation[2] += (last.x - p.x) * scale;
+            Lorenz.rotation[0] += (last.y - p.y) * scale;
+        }
+        lastlast = last;
+        last = p;
+    });
+    igloo.gl.canvas.addEventListener('touchend', function() {
+        var scale = 1 / 100;
+        if (lastlast) {
+            Lorenz.rotationd[2] = (lastlast.x - last.x) * scale;
+            Lorenz.rotationd[0] = (lastlast.y - last.y) * scale;
+        }
+        last = null;
     });
     igloo.gl.canvas.addEventListener('DOMMouseScroll', function(e) {
         Lorenz.scale *= e.detail > 0 ? 0.95 : 1.1;
@@ -214,6 +249,13 @@ Lorenz.curves = (function(ncurves) {
         ]));
     }
     function go() {
+        Lorenz.rotation[0] += Lorenz.rotationd[0];
+        Lorenz.rotation[1] += Lorenz.rotationd[1];
+        Lorenz.rotation[2] += Lorenz.rotationd[2];
+        var decay = 0.95;
+        Lorenz.rotationd[0] *= decay;
+        Lorenz.rotationd[1] *= decay;
+        Lorenz.rotationd[2] *= decay;
         Lorenz.clear();
         for (var i = 0; i < curves.length; i++) {
             if (!Lorenz.paused) {
