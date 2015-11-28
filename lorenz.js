@@ -43,6 +43,7 @@ Lorenz.translation = [-0.03, -0.07, 1.81];
 
 Lorenz.paused = false;
 Lorenz.showHeads = true;
+Lorenz.damping = true;
 Lorenz.tails = 512;
 
 Lorenz.sigma = 10;
@@ -167,6 +168,8 @@ Lorenz.igloo = (function() {
             Lorenz.paused = !Lorenz.paused;
         else if (e.which == 'h'.charCodeAt(0))
             Lorenz.showHeads = !Lorenz.showHeads;
+        else if (e.which == 'd'.charCodeAt(0))
+            Lorenz.damping = !Lorenz.damping;
     });
     return igloo;
 }());
@@ -271,10 +274,12 @@ Lorenz.curves = (function(ncurves) {
         Lorenz.rotation[0] += Lorenz.rotationd[0];
         Lorenz.rotation[1] += Lorenz.rotationd[1];
         Lorenz.rotation[2] += Lorenz.rotationd[2];
-        var damping = 0.96;
-        Lorenz.rotationd[0] *= damping;
-        Lorenz.rotationd[1] *= damping;
-        Lorenz.rotationd[2] *= damping;
+        if (Lorenz.damping) {
+            var damping = 0.96;
+            Lorenz.rotationd[0] *= damping;
+            Lorenz.rotationd[1] *= damping;
+            Lorenz.rotationd[2] *= damping;
+        }
         Lorenz.clear();
         for (var i = 0; i < curves.length; i++) {
             if (!Lorenz.paused) {
