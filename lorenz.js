@@ -83,7 +83,8 @@ Lorenz.igloo = (function() {
     var last = null;
     var lastbuttons = null;
     igloo.gl.canvas.addEventListener('mousemove', function(e) {
-        var p = {x: e.pageX, y: e.pageY};
+        e.preventDefault();
+        var p = {x: e.pageX, y: e.pageY, t: Date.now() / 1000};
         if (last) {
             var dy = (last.y - p.y);
             var dx = (last.x - p.x);
@@ -108,16 +109,24 @@ Lorenz.igloo = (function() {
         last = p;
     });
     igloo.gl.canvas.addEventListener('mouseup', function(e) {
-        var scale = 1 / 100;
-        if (lastlast && !(lastbuttons & 4)) {
-            Lorenz.rotationd[2] = (lastlast.x - last.x) * scale;
-            Lorenz.rotationd[0] = (lastlast.y - last.y) * scale;
+        e.preventDefault();
+        var scale = 1 / 5000;
+        if (lastlast && last && !(lastbuttons & 4)) {
+            var dx = lastlast.x - last.x;
+            var dy = lastlast.y - last.y;
+            var dt = Date.now() / 1000 - lastlast.t;
+            Lorenz.rotationd[2] = dx / dt * scale;
+            Lorenz.rotationd[0] = dy / dt * scale;
         }
         last = null;
     });
     igloo.gl.canvas.addEventListener('touchmove', function(e) {
-        var p = {x: e.touches[0].clientX, y: e.touches[0].clientY};
-        console.log(p);
+        e.preventDefault();
+        var p = {
+            x: e.touches[0].clientX,
+            y: e.touches[0].clientY,
+            t: Date.now() / 1000
+        };
         if (last) {
             var scale = 1 / 100;
             Lorenz.rotation[2] += (last.x - p.x) * scale;
@@ -126,21 +135,29 @@ Lorenz.igloo = (function() {
         lastlast = last;
         last = p;
     });
-    igloo.gl.canvas.addEventListener('touchend', function() {
-        var scale = 1 / 100;
-        if (lastlast) {
-            Lorenz.rotationd[2] = (lastlast.x - last.x) * scale;
-            Lorenz.rotationd[0] = (lastlast.y - last.y) * scale;
+    igloo.gl.canvas.addEventListener('touchend', function(e) {
+        var scale = 1 / 5000;
+        if (lastlast && last) {
+            var dx = lastlast.x - last.x;
+            var dy = lastlast.y - last.y;
+            var dt = Date.now() / 1000 - lastlast.t;
+            Lorenz.rotationd[2] = dx / dt * scale;
+            Lorenz.rotationd[0] = dy / dt * scale;
+        } else {
+            Lorenz.addRandom();
         }
         last = null;
     });
     igloo.gl.canvas.addEventListener('DOMMouseScroll', function(e) {
+        e.preventDefault();
         Lorenz.scale *= e.detail > 0 ? 0.95 : 1.1;
     });
     igloo.gl.canvas.addEventListener('mousewheel', function(e) {
+        e.preventDefault();
         Lorenz.scale *= e.wheelDelta < 0 ? 0.95 : 1.1;
     });
     window.addEventListener('keypress', function(e) {
+        e.preventDefault();
         if (e.which == 'a'.charCodeAt(0))
             Lorenz.addRandom();
         else if (e.which == 'c'.charCodeAt(0))
