@@ -41,6 +41,8 @@ Lorenz.rotation = [1.65, 3.08, -0.93];
 Lorenz.rotationd = [0, 0, 0];
 Lorenz.translation = [-0.03, -0.07, 1.81];
 
+Lorenz.stepSize = 0.002;
+Lorenz.stepPerFrame = 3;
 Lorenz.paused = false;
 Lorenz.showHeads = true;
 Lorenz.damping = true;
@@ -266,45 +268,24 @@ Lorenz.prototype.trim = function(length) {
     this.buffers.index.update(index);
 };
 
-Lorenz.curves = (function(ncurves) {
-    var curves = [];
-    var orig = [Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5];
-    for (var i = 0; i < ncurves; i++) {
-        curves.push(new Lorenz([
-            orig[0] + (Math.random() - 0.5) / 100,
-            orig[1] + (Math.random() - 0.5) / 100,
-            orig[2] + (Math.random() - 0.5) / 100,
-        ]));
-    }
-    function go() {
-        Lorenz.rotation[0] += Lorenz.rotationd[0];
-        Lorenz.rotation[1] += Lorenz.rotationd[1];
-        Lorenz.rotation[2] += Lorenz.rotationd[2];
-        if (Lorenz.damping) {
-            var damping = 0.96;
-            Lorenz.rotationd[0] *= damping;
-            Lorenz.rotationd[1] *= damping;
-            Lorenz.rotationd[2] *= damping;
-        }
-        Lorenz.clear();
-        for (var i = 0; i < curves.length; i++) {
-            if (!Lorenz.paused) {
-                curves[i].step(0.002);
-                curves[i].step(0.002);
-                curves[i].step(0.002);
-            }
-            curves[i].drawTail();
-        }
-        if (Lorenz.showHeads)
-            for (var i = 0; i < curves.length; i++)
-                curves[i].drawHead();
-        requestAnimationFrame(go);
-    }
-    go();
-    return curves;
-}(Lorenz.colors.length));
+/* UI stuff */
 
-function sliders(e) {
+function updateSliders() {
+    var sigma = document.querySelector('#sigma');
+    var beta = document.querySelector('#beta');
+    var rho = document.querySelector('#rho');
+    sigma.value = Lorenz.sigma;
+    beta.value = Lorenz.beta;
+    rho.value = Lorenz.rho;
+    var sigmaL = document.querySelector('#sigma-label');
+    var betaL = document.querySelector('#beta-label');
+    var rhoL = document.querySelector('#rho-label');
+    sigmaL.innerHTML = sigma.value;
+    betaL.innerHTML = beta.value;
+    rhoL.innerHTML = rho.value;
+}
+
+function slidersHandler(e) {
     var sigma = document.querySelector('#sigma');
     var beta = document.querySelector('#beta');
     var rho = document.querySelector('#rho');
@@ -320,16 +301,13 @@ function sliders(e) {
 }
 
 (function() {
+    updateSliders();
     var sigma = document.querySelector('#sigma');
     var beta = document.querySelector('#beta');
     var rho = document.querySelector('#rho');
-    sigma.value = Lorenz.sigma;
-    beta.value = Lorenz.beta;
-    rho.value = Lorenz.rho;
-    sigma.addEventListener('input', sliders);
-    beta.addEventListener('input', sliders);
-    rho.addEventListener('input', sliders);
-    sliders();
+    sigma.addEventListener('input', slidersHandler);
+    beta.addEventListener('input', slidersHandler);
+    rho.addEventListener('input', slidersHandler);
 }());
 
 function tailsHandler(e) {
@@ -346,6 +324,33 @@ function tailsHandler(e) {
     tails.addEventListener('input', tailsHandler);
     var tailsL = document.querySelector('#tails-label');
     tailsL.innerHTML = Lorenz.tails;
+}());
+
+(function() {
+    var preset = document.querySelector('#preset');
+    preset.addEventListener('change', function() {
+        if (preset.value === 'chaos') {
+            Lorenz.curves.length = 0;
+            Lorenz.addRandom();
+            for (var i = 0; i < 31; i++)
+                Lorenz.addClone();
+        } else if (preset.value === 'gentle') {
+            while (Lorenz.curves.length < 32)
+                Lorenz.addRandom();
+            Lorenz.rotationd[0] = 0;
+            Lorenz.rotationd[1] = 0;
+            Lorenz.rotationd[2] = 0.007;
+            Lorenz.damping = false;
+        } else if (preset.value === 'bendy') {
+            while (Lorenz.curves.length < 32)
+                Lorenz.addRandom();
+            Lorenz.sigma = 17.24;
+            Lorenz.beta = 1.1;
+            Lorenz.rho = 217;
+            Lorenz.scale = 1 / 65;
+            updateSliders();
+        }
+    });
 }());
 
 /* High-level Utility Functions */
@@ -377,3 +382,37 @@ Lorenz.addClone = function() {
 Lorenz.clearAll = function() {
     Lorenz.curves.length = 0;
 };
+
+/* Main loop */
+
+Lorenz.curves = [];
+
+(function() {
+    for (var i = 0; i < Lorenz.colors.length; i++)
+        Lorenz.addRandom();
+
+    function go() {
+        Lorenz.rotation[0] += Lorenz.rotationd[0];
+        Lorenz.rotation[1] += Lorenz.rotationd[1];
+        Lorenz.rotation[2] += Lorenz.rotationd[2];
+        if (Lorenz.damping) {
+            var damping = 0.96;
+            Lorenz.rotationd[0] *= damping;
+            Lorenz.rotationd[1] *= damping;
+            Lorenz.rotationd[2] *= damping;
+        }
+        Lorenz.clear();
+        for (var i = 0; i < Lorenz.curves.length; i++) {
+            if (!Lorenz.paused) 
+                for (var s = 0; s < Lorenz.stepPerFrame; s++)
+                    Lorenz.curves[i].step(Lorenz.stepSize);
+            Lorenz.curves[i].drawTail();
+        }
+        if (Lorenz.showHeads)
+            for (var i = 0; i < Lorenz.curves.length; i++)
+                Lorenz.curves[i].drawHead();
+        requestAnimationFrame(go);
+    }
+    go();
+}());
+

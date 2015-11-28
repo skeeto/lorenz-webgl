@@ -4,7 +4,6 @@
     <title>Lorenz System</title>
     <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
     <script src="igloo.js"></script>
-    <script src="http://tengu:8080/skewer"></script>
     <link rel="stylesheet" href="lorenz.css"/>
   </head>
   <body>
@@ -58,6 +57,14 @@
         <li>
           <input id="rho" type="range" min="0" max="300" step="0.01"/>
           <label>&rho; = <span id="rho-label"></span></label>
+        </li>
+        <li>
+          <select id="preset">
+            <option disabled selected>-- presets --</option>
+            <option value="chaos">Chaos Demo</option>
+            <option value="gentle">Gentle Rotation</option>
+            <option value="bendy">Bendy</option>
+          </select>
         </li>
       </ul>
       <h1>

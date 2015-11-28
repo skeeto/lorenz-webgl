@@ -58,3 +58,8 @@ canvas {
     color: #aaf;
     text-decoration: none;
 }
+
+#help select {
+    width: 100%;
+    margin-top: 10px;
+}
