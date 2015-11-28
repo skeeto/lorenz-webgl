@@ -45,3 +45,16 @@ canvas {
     display: inline-block;
     font-weight: bold;
 }
+
+#help h1 {
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    text-align: right;
+    margin: 10px 5px 5px 0;
+}
+
+#help h1 a {
+    color: #aaf;
+    text-decoration: none;
+}
