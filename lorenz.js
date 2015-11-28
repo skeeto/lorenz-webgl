@@ -271,10 +271,10 @@ Lorenz.curves = (function(ncurves) {
         Lorenz.rotation[0] += Lorenz.rotationd[0];
         Lorenz.rotation[1] += Lorenz.rotationd[1];
         Lorenz.rotation[2] += Lorenz.rotationd[2];
-        var decay = 0.95;
-        Lorenz.rotationd[0] *= decay;
-        Lorenz.rotationd[1] *= decay;
-        Lorenz.rotationd[2] *= decay;
+        var damping = 0.96;
+        Lorenz.rotationd[0] *= damping;
+        Lorenz.rotationd[1] *= damping;
+        Lorenz.rotationd[2] *= damping;
         Lorenz.clear();
         for (var i = 0; i < curves.length; i++) {
             if (!Lorenz.paused) {
