@@ -39,6 +39,18 @@
         <li><kbd>?</kbd>
           <label>toggle this menu</label>
         </li>
+        <li>
+          <input id="sigma" type="range" min="-1" max="20" step="0.01"/>
+          <label>&sigma; = <span id="sigma-label"></span></label>
+        </li>
+        <li>
+          <input id="beta" type="range" min="0" max="20" step="0.01"/>
+          <label>&beta; = <span id="beta-label"></span></label>
+        </li>
+        <li>
+          <input id="rho" type="range" min="0" max="300" step="0.01"/>
+          <label>&rho; = <span id="rho-label"></span></label>
+        </li>
       </ul>
     </div>
     <canvas id="lorenz"/>

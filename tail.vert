@@ -9,6 +9,7 @@ uniform vec3 rotation;
 uniform vec3 translation;
 uniform float start;
 uniform float len;
+uniform float rho;
 
 varying float fade;
 
@@ -84,7 +85,7 @@ mat4 rotate_z(float t)
 }
 
 void main() {
-    vec4 position = vec4(point.xy, point.z - 25.0, 1);
+    vec4 position = vec4(point.xy, point.z - rho, 1);
     gl_Position = view_frustum(radians(45.0), aspect, 0.5, 10.0)
         * translate(translation.x, translation.y, translation.z)
         * rotate_x(rotation.x)

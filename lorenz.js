@@ -92,7 +92,7 @@ Lorenz.igloo = (function() {
                     Lorenz.translation[2] += dy * scale;
                 else
                     Lorenz.translation[0] += dx * -scale;
-                Lorenz.translation[1] += dy * scale;       
+                Lorenz.translation[1] += dy * scale;
             } else if (e.buttons) {
                 var scale = 1 / 100;
                 if (e.shiftKey)
@@ -198,6 +198,7 @@ Lorenz.prototype.drawTail = function() {
         .uniform('translation', Lorenz.translation)
         .uniform('color', this.color)
         .uniform('len', this.tail.length)
+        .uniform('rho', Lorenz.rho)
         .uniform('start', this.tail.i - 1)
         .draw(gl.LINE_LOOP, this.tail.length);
 };
@@ -212,6 +213,7 @@ Lorenz.prototype.drawHead = function() {
         .uniform('rotation', Lorenz.rotation)
         .uniform('translation', Lorenz.translation)
         .uniform('color', this.color)
+        .uniform('rho', Lorenz.rho)
         .draw(gl.POINTS, 1);
 };
 
@@ -266,13 +268,41 @@ Lorenz.curves = (function(ncurves) {
             curves[i].drawTail();
         }
         if (Lorenz.showHeads)
-            for (var i = 0; i < curves.length; i++) 
+            for (var i = 0; i < curves.length; i++)
                 curves[i].drawHead();
         requestAnimationFrame(go);
     }
     go();
     return curves;
 }(Lorenz.colors.length));
+
+function sliders(e) {
+    var sigma = document.querySelector('#sigma');
+    var beta = document.querySelector('#beta');
+    var rho = document.querySelector('#rho');
+    var sigmaL = document.querySelector('#sigma-label');
+    var betaL = document.querySelector('#beta-label');
+    var rhoL = document.querySelector('#rho-label');
+    Lorenz.sigma = parseFloat(sigma.value);
+    Lorenz.beta = parseFloat(beta.value);
+    Lorenz.rho = parseFloat(rho.value);
+    sigmaL.innerHTML = sigma.value;
+    betaL.innerHTML = beta.value;
+    rhoL.innerHTML = rho.value;
+}
+
+(function() {
+    var sigma = document.querySelector('#sigma');
+    var beta = document.querySelector('#beta');
+    var rho = document.querySelector('#rho');
+    sigma.value = Lorenz.sigma;
+    beta.value = Lorenz.beta;
+    rho.value = Lorenz.rho;
+    sigma.addEventListener('input', sliders);
+    beta.addEventListener('input', sliders);
+    rho.addEventListener('input', sliders);
+    sliders();
+}());
 
 /* High-level Utility Functions */
 
