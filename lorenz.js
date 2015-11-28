@@ -39,7 +39,7 @@ Lorenz.colors = [
 Lorenz.scale = 1 / 25;
 Lorenz.rotation = [1.65, 3.08, -0.93];
 Lorenz.rotationd = [0, 0, 0];
-Lorenz.translation = [-0.03, -0.07, 1.81];
+Lorenz.translation = [0, 0.075, 1.81];
 
 Lorenz.stepSize = 0.002;
 Lorenz.stepPerFrame = 3;
