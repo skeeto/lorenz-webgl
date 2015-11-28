@@ -11,7 +11,7 @@ function Lorenz(y) {
         values: [],
         length: 0
     };
-    this.trim(500);
+    this.trim(Lorenz.tails);
     this.color = Lorenz.colors[Lorenz.colori++ % Lorenz.colors.length].slice(0);
     this.color[0] = this.color[0] / 255;
     this.color[1] = this.color[1] / 255;
@@ -43,6 +43,7 @@ Lorenz.translation = [-0.03, -0.07, 1.81];
 
 Lorenz.paused = false;
 Lorenz.showHeads = true;
+Lorenz.tails = 512;
 
 Lorenz.sigma = 10;
 Lorenz.beta = 8 / 3;
@@ -302,6 +303,22 @@ function sliders(e) {
     beta.addEventListener('input', sliders);
     rho.addEventListener('input', sliders);
     sliders();
+}());
+
+function tailsHandler(e) {
+    var tails = document.querySelector('#tails');
+    Lorenz.tails = Math.pow(2, parseFloat(tails.value));
+    Lorenz.trimAll(Lorenz.tails);
+    var tailsL = document.querySelector('#tails-label');
+    tailsL.innerHTML = Lorenz.tails;
+}
+
+(function() {
+    var tails = document.querySelector('#tails');
+    tails.value = Math.log2(Lorenz.tails);
+    tails.addEventListener('input', tailsHandler);
+    var tailsL = document.querySelector('#tails-label');
+    tailsL.innerHTML = Lorenz.tails;
 }());
 
 /* High-level Utility Functions */
