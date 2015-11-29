@@ -52,28 +52,56 @@ Lorenz.sigma = 10;
 Lorenz.beta = 8 / 3;
 Lorenz.rho = 28;
 
-Lorenz.lorenz = function(y, h) {
-    var sigma = Lorenz.sigma;
-    var beta = Lorenz.beta;
-    var rho = Lorenz.rho;
-    function f(y) {
-        return [sigma * (y[1] - y[0]),
-                y[0] * (rho - y[2]) - y[1],
-                y[0] * y[1] - beta * y[2]];
-    };
-    function add3(a, b) {
-        return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-    }
-    function scale3(v, s) {
-        return [v[0] * s, v[1] * s, v[2] * s];
-    }
-    /* RK4 integration */
-    var k1 = f(y);
-    var k2 = f(add3(y, scale3(k1, h / 2)));
-    var k3 = f(add3(y, scale3(k2, h / 2)));
-    var k4 = f(add3(y, scale3(k3, h)));
-    var sum = add3(add3(k1, scale3(k2, 2)), add3(scale3(k3, 3), k4));
-    return add3(y, scale3(sum, h / 6));
+/**
+ * Update s to the next Lorenz state using RK4.
+ * Performs no allocations and hopefully JITs very effectively.
+ * @param {!number[3]} s
+ * @param {!number}    dt
+ * @param {!number}    σ
+ * @param {!number}    β
+ * @param {!number}    ρ
+ * @returns {undefined}
+ */
+Lorenz.lorenz = function(s, dt, σ, β, ρ) {
+    function dx(x, y, z) { return σ * (y - x); }
+    function dy(x, y, z) { return x * (ρ - z) - y; }
+    function dz(x, y, z) { return x * y - β * z; }
+
+    var x = s[0];
+    var y = s[1];
+    var z = s[2];
+
+    var k1dx = dx(x, y, z);
+    var k1dy = dy(x, y, z);
+    var k1dz = dz(x, y, z);
+    
+    var k2x = x + k1dx * dt / 2;
+    var k2y = y + k1dy * dt / 2;
+    var k2z = z + k1dz * dt / 2;
+
+    var k2dx = dx(k2x, k2y, k2z);
+    var k2dy = dy(k2x, k2y, k2z);
+    var k2dz = dz(k2x, k2y, k2z);
+
+    var k3x = x + k2dx * dt / 2;
+    var k3y = y + k2dy * dt / 2;
+    var k3z = z + k2dz * dt / 2;
+
+    var k3dx = dx(k3x, k3y, k3z);
+    var k3dy = dy(k3x, k3y, k3z);
+    var k3dz = dz(k3x, k3y, k3z);
+
+    var k4x = x + k3dx * dt;
+    var k4y = y + k3dy * dt;
+    var k4z = z + k3dz * dt;
+
+    var k4dx = dx(k4x, k4y, k4z);
+    var k4dy = dy(k4x, k4y, k4z);
+    var k4dz = dz(k4x, k4y, k4z);
+
+    s[0] = x + (k1dx + 2*k2dx + 2*k3dx + k4dx) * dt / 6;
+    s[1] = y + (k1dy + 2*k2dy + 2*k3dy + k4dy) * dt / 6;
+    s[2] = z + (k1dz + 2*k2dz + 2*k3dz + k4dz) * dt / 6;
 };
 
 Lorenz.igloo = (function() {
@@ -203,9 +231,9 @@ Lorenz.aspect = function() {
     return Lorenz.igloo.gl.canvas.width / Lorenz.igloo.gl.canvas.height;
 };
 
-Lorenz.prototype.step = function(t) {
+Lorenz.prototype.step = function(dt) {
     this.tick++;
-    this.y = Lorenz.lorenz(this.y, t);
+    Lorenz.lorenz(this.y, dt, Lorenz.sigma, Lorenz.beta, Lorenz.rho);
     this.tail.values[this.tail.i * 3 + 0] = this.y[0];
     this.tail.values[this.tail.i * 3 + 1] = this.y[1];
     this.tail.values[this.tail.i * 3 + 2] = this.y[2];
