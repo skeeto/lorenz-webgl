@@ -320,7 +320,7 @@ function tailsHandler(e) {
 
 (function() {
     var tails = document.querySelector('#tails');
-    tails.value = Math.log2(Lorenz.tails);
+    tails.value = Math.log(Lorenz.tails) * Math.LOG2E;
     tails.addEventListener('input', tailsHandler);
     var tailsL = document.querySelector('#tails-label');
     tailsL.innerHTML = Lorenz.tails;
