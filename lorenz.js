@@ -1,56 +1,207 @@
-function Lorenz(y) {
-    var igloo = Lorenz.igloo;
-    this.buffers = {
-        tail: igloo.array(),
-        index: igloo.array(),
-        head: igloo.array()
+/**
+ * @param {canvas} HTMLCanvasElement
+ * @returns {Lorenz}
+ */
+function Lorenz(canvas) {
+    var gl = canvas.getContext('webgl') ||
+             canvas.getContext('experimental-webgl');
+    if (gl == null)
+        throw new Error('Could not create WebGL context.');
+    this.gl = gl;
+    gl.clearColor(0.1, 0.1, 0.1, 1);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    this.params = {
+        sigma: 10,
+        beta: 8 / 3,
+        rho: 28,
+        step_size: 0.002,
+        steps_per_frame: 3,
+        paused: false
     };
-    this.y = y;
-    this.tail = {
-        i: 0,
-        values: [],
-        length: 0
+    this.display = {
+        scale: 1 / 25,
+        rotation: [1.65, 3.08, -0.93],
+        rotationd: [0, 0, 0],
+        translation: [0, 0.075, 1.81],
+        draw_heads: true,
+        damping: true,
+        _length: 512 // change through length getter/setter
     };
-    this.trim(Lorenz.tails);
-    this.color = Lorenz.colors[Lorenz.colori++ % Lorenz.colors.length].slice(0);
-    this.color[0] = this.color[0] / 255;
-    this.color[1] = this.color[1] / 255;
-    this.color[2] = this.color[2] / 255;
-    this.tick = 0;
+
+    this.solutions = [];
+    this.tail = [];
+    this.tail_buffer = gl.createBuffer();
+    this.tail_index = 0;
+    this.tail_colors = [];
+    this.tail_colors_buffer = gl.createBuffer();
+    this.tail_index_buffer = Lorenz.create_index(gl, this.display._length);
+    this.head = [];
+    this.head_buffer = gl.createBuffer();
+    this.tail_length = [];
+    this.tail_length_buffer = gl.createBuffer();
+
+    this.programs = {
+        tail: {
+            program: null,
+            attrib: {},
+            uniform: {}
+        },
+        head: {
+            program: null,
+            attrib: {},
+            uniform: {}
+        }
+    };
+    var shaders = [
+        'project.vert', 'tail.vert', 'tail.frag', 'head.vert', 'head.frag'
+    ];
+    Lorenz.fetch(shaders, function(project, tail_v, tail_f, head_v, head_f) {
+        var tail = Lorenz.compile(gl, project + tail_v, tail_f);
+        gl.useProgram(tail);
+        this.programs.tail.program = tail;
+        var attrib = this.programs.tail.attrib;
+        attrib.point = gl.getAttribLocation(tail, 'point');
+        attrib.index = gl.getAttribLocation(tail, 'index');
+        gl.enableVertexAttribArray(this.programs.tail.attrib.point);
+        gl.enableVertexAttribArray(this.programs.tail.attrib.index);
+        var uniform = this.programs.tail.uniform;
+        uniform.aspect = gl.getUniformLocation(tail, 'aspect');
+        uniform.scale = gl.getUniformLocation(tail, 'scale');
+        uniform.rotation = gl.getUniformLocation(tail, 'rotation');
+        uniform.translation = gl.getUniformLocation(tail, 'translation');
+        uniform.color = gl.getUniformLocation(tail, 'color');
+        uniform.rho = gl.getUniformLocation(tail, 'rho');
+        uniform.tail_length = gl.getUniformLocation(tail, 'tail_length');
+        uniform.max_length = gl.getUniformLocation(tail, 'max_length');
+        uniform.start = gl.getUniformLocation(tail, 'start');
+
+        var head = Lorenz.compile(gl, project + head_v, head_f);
+        gl.useProgram(head);
+        this.programs.head.program = head;
+        attrib = this.programs.head.attrib;
+        attrib.point = gl.getAttribLocation(head, 'point');
+        attrib.color = gl.getAttribLocation(head, 'color');
+        gl.enableVertexAttribArray(this.programs.head.attrib.color);
+        uniform = this.programs.head.uniform;
+        uniform.aspect = gl.getUniformLocation(head, 'aspect');
+        uniform.scale = gl.getUniformLocation(head, 'scale');
+        uniform.rotation = gl.getUniformLocation(head, 'rotation');
+        uniform.translation = gl.getUniformLocation(head, 'translation');
+        uniform.rho = gl.getUniformLocation(head, 'rho');
+
+        this.ready = true;
+    }.bind(this));
+
+    this.frame = 0;
+    this.ready = false;
 }
 
-Lorenz.colori = 0;
-Lorenz.colors = [
-    [0x8d, 0xd3, 0xc7],
-    [0xff, 0xff, 0xb3],
-    [0xbe, 0xba, 0xda],
-    [0xfb, 0x80, 0x72],
-    [0x80, 0xb1, 0xd3],
-    [0xfd, 0xb4, 0x62],
-    [0xb3, 0xde, 0x69],
-    [0xfc, 0xcd, 0xe5],
-    [0xd9, 0xd9, 0xd9],
-    [0xbc, 0x80, 0xbd],
-    [0xcc, 0xeb, 0xc5],
-    [0xff, 0xed, 0x6f],
-    [0xff, 0xff, 0xff]
-];
+/**
+ * Fetch the content for each URL and invoke the callback with the results.
+ * @param {String[]} urls
+ * @param {Function} callback called with one argument per URL
+ * @returns {Array} array that will contain the results
+ */
+Lorenz.fetch = function(urls, callback) {
+    var results = [];
+    var countdown = urls.length;
+    for (var i = 0; i < urls.length; i++) {
+        results.push(null);
+        (function(i) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', urls[i], true);
+            xhr.onload = function() {
+                results[i] = xhr.responseText;
+                if (--countdown == 0)
+                    callback.apply(results, results);
+            };
+            xhr.send();
+        }(i));
+    }
+    return results;
+};
 
-Lorenz.scale = 1 / 25;
-Lorenz.rotation = [1.65, 3.08, -0.93];
-Lorenz.rotationd = [0, 0, 0];
-Lorenz.translation = [0, 0.075, 1.81];
+/**
+ * @param {WebGLRenderingContext} gl
+ * @param {string} vert
+ * @param {string} frag
+ * @returns {WebGLProgram}
+ */
+Lorenz.compile = function(gl, vert, frag) {
+    var v = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(v, vert);
+    var f = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(f, frag);
+    gl.compileShader(v);
+    if (!gl.getShaderParameter(v, gl.COMPILE_STATUS))
+        throw new Error(gl.getShaderInfoLog(v));
+    gl.compileShader(f);
+    if (!gl.getShaderParameter(f, gl.COMPILE_STATUS))
+        throw new Error(gl.getShaderInfoLog(f));
+    var p = gl.createProgram();
+    gl.attachShader(p, v);
+    gl.attachShader(p, f);
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS))
+        throw new Error(gl.getProgramInfoLog(p));
+    return p;
+};
 
-Lorenz.stepSize = 0.002;
-Lorenz.stepPerFrame = 3;
-Lorenz.paused = false;
-Lorenz.showHeads = true;
-Lorenz.damping = true;
-Lorenz.tails = 512;
+/**
+ * @returns {WebGLBuffer}
+ */
+Lorenz.create_index = function(gl, length) {
+    var data = new Float32Array(length);
+    for (var i = 0; i < length; i++)
+        data[i] = i;
+    var buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    return buffer;
+};
 
-Lorenz.sigma = 10;
-Lorenz.beta = 8 / 3;
-Lorenz.rho = 28;
+/**
+ * @returns {number[3]}
+ */
+Lorenz.generate = function() {
+    return [
+        (Math.random() - 0.5) * 50,
+        (Math.random() - 0.5) * 50,
+        (Math.random() - 0.5) * 50,
+    ];
+};
+
+/**
+ * @returns {number[3]}
+ */
+Lorenz.color = (function() {
+    var i = 0;
+    var colors = [
+        [0x8d, 0xd3, 0xc7],
+        [0xff, 0xff, 0xb3],
+        [0xbe, 0xba, 0xda],
+        [0xfb, 0x80, 0x72],
+        [0x80, 0xb1, 0xd3],
+        [0xfd, 0xb4, 0x62],
+        [0xb3, 0xde, 0x69],
+        [0xfc, 0xcd, 0xe5],
+        [0xd9, 0xd9, 0xd9],
+        [0xbc, 0x80, 0xbd],
+        [0xcc, 0xeb, 0xc5],
+        [0xff, 0xed, 0x6f],
+        [0xff, 0xff, 0xff]
+    ];
+    return function() {
+        var color = colors[i++ % colors.length].slice(0);
+        color[0] = color[0] / 255;
+        color[1] = color[1] / 255;
+        color[2] = color[2] / 255;
+        return color;
+    };
+}());
 
 /**
  * Update s to the next Lorenz state using RK4.
@@ -74,7 +225,7 @@ Lorenz.lorenz = function(s, dt, σ, β, ρ) {
     var k1dx = dx(x, y, z);
     var k1dy = dy(x, y, z);
     var k1dz = dz(x, y, z);
-    
+
     var k2x = x + k1dx * dt / 2;
     var k2y = y + k1dy * dt / 2;
     var k2z = z + k1dz * dt / 2;
@@ -104,119 +255,55 @@ Lorenz.lorenz = function(s, dt, σ, β, ρ) {
     s[2] = z + (k1dz + 2*k2dz + 2*k3dz + k4dz) * dt / 6;
 };
 
-Lorenz.igloo = (function() {
-    var igloo = new Igloo(document.querySelector('#lorenz'));
-    var gl = igloo.gl;
-    gl.clearColor(0.1, 0.1, 0.1, 1);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    var lastlast = null;
-    var last = null;
-    var lastbuttons = null;
-    igloo.gl.canvas.addEventListener('mousemove', function(e) {
-        e.preventDefault();
-        var p = {x: e.pageX, y: e.pageY, t: Date.now() / 1000};
-        if (last) {
-            var dy = (last.y - p.y);
-            var dx = (last.x - p.x);
-            if (e.buttons & 4) {
-                var scale = 1 / 200;
-                if (e.shiftKey)
-                    Lorenz.translation[2] += dy * scale;
-                else
-                    Lorenz.translation[0] += dx * -scale;
-                Lorenz.translation[1] += dy * scale;
-            } else if (e.buttons) {
-                Lorenz.rotationd[0] = 0;
-                Lorenz.rotationd[1] = 0;
-                Lorenz.rotationd[2] = 0;
-                var scale = 1 / 100;
-                if (e.shiftKey)
-                    Lorenz.rotation[1] += dx * -scale;
-                else
-                    Lorenz.rotation[2] += dx * scale;
-                Lorenz.rotation[0] += dy * scale;
+/**
+ * Advance the system state by one frame.
+ * @returns {Lorenz} this
+ */
+Lorenz.prototype.step = function() {
+    if (!this.ready)
+        return this;
+    if (!this.params.paused) {
+        var σ = this.params.sigma;
+        var β = this.params.beta;
+        var ρ = this.params.rho;
+        var dt = this.params.step_size;
+        var length = this.display._length;
+        var tail = this.tail;
+        for (var s = 0; s < this.params.steps_per_frame; s++) {
+            var tail_index = this.tail_index;
+            this.tail_index = (this.tail_index + 1) % length;
+            for (var i = 0; i < this.solutions.length; i++)  {
+                Lorenz.lorenz(this.solutions[i], dt, σ, β, ρ);
+                var base = i * length * 3 + tail_index * 3;
+                tail[base + 0] = this.solutions[i][0];
+                tail[base + 1] = this.solutions[i][1];
+                tail[base + 2] = this.solutions[i][2];
+                var next = this.tail_length[i] + 1;
+                this.tail_length[i] = Math.min(next, length);
             }
         }
-        lastbuttons = e.buttons;
-        lastlast = last;
-        last = p;
-    });
-    igloo.gl.canvas.addEventListener('mouseup', function(e) {
-        e.preventDefault();
-        var scale = 1 / 5000;
-        if (lastlast && last && !(lastbuttons & 4)) {
-            var dx = lastlast.x - last.x;
-            var dy = lastlast.y - last.y;
-            var dt = Date.now() / 1000 - lastlast.t;
-            Lorenz.rotationd[2] = dx / dt * scale;
-            Lorenz.rotationd[0] = dy / dt * scale;
-        }
-        last = null;
-    });
-    igloo.gl.canvas.addEventListener('touchmove', function(e) {
-        e.preventDefault();
-        var p = {
-            x: e.touches[0].clientX,
-            y: e.touches[0].clientY,
-            t: Date.now() / 1000
-        };
-        if (last) {
-            Lorenz.rotationd[0] = 0;
-            Lorenz.rotationd[1] = 0;
-            Lorenz.rotationd[2] = 0;
-            var scale = 1 / 100;
-            Lorenz.rotation[2] += (last.x - p.x) * scale;
-            Lorenz.rotation[0] += (last.y - p.y) * scale;
-        }
-        lastlast = last;
-        last = p;
-    });
-    igloo.gl.canvas.addEventListener('touchend', function(e) {
-        var scale = 1 / 5000;
-        if (lastlast && last) {
-            var dx = lastlast.x - last.x;
-            var dy = lastlast.y - last.y;
-            var dt = Date.now() / 1000 - lastlast.t;
-            Lorenz.rotationd[2] = dx / dt * scale;
-            Lorenz.rotationd[0] = dy / dt * scale;
-        } else {
-            Lorenz.addRandom();
-        }
-        last = null;
-    });
-    igloo.gl.canvas.addEventListener('DOMMouseScroll', function(e) {
-        e.preventDefault();
-        Lorenz.scale *= e.detail > 0 ? 0.95 : 1.1;
-    });
-    igloo.gl.canvas.addEventListener('mousewheel', function(e) {
-        e.preventDefault();
-        Lorenz.scale *= e.wheelDelta < 0 ? 0.95 : 1.1;
-    });
-    window.addEventListener('keypress', function(e) {
-        if (e.which == 'a'.charCodeAt(0))
-            Lorenz.addRandom();
-        else if (e.which == 'c'.charCodeAt(0))
-            Lorenz.addClone();
-        else if (e.which == 'C'.charCodeAt(0))
-            Lorenz.clearAll();
-        else if (e.which == ' '.charCodeAt(0))
-            Lorenz.paused = !Lorenz.paused;
-        else if (e.which == 'h'.charCodeAt(0))
-            Lorenz.showHeads = !Lorenz.showHeads;
-        else if (e.which == 'd'.charCodeAt(0))
-            Lorenz.damping = !Lorenz.damping;
-    });
-    return igloo;
-}());
-
-Lorenz.programs = {
-    line: Lorenz.igloo.program('tail.vert', 'tail.frag'),
-    head: Lorenz.igloo.program('tail.vert', 'head.frag')
+    }
+    this.display.rotation[0] += this.display.rotationd[0];
+    this.display.rotation[1] += this.display.rotationd[1];
+    this.display.rotation[2] += this.display.rotationd[2];
+    if (this.display.damping) {
+        var damping = 0.96;
+        this.display.rotationd[0] *= damping;
+        this.display.rotationd[1] *= damping;
+        this.display.rotationd[2] *= damping;
+    }
+    this.frame++;
+    return this;
 };
 
-Lorenz.clear = function() {
-    var gl = Lorenz.igloo.gl;
+/**
+ * Renders the current state to the associated WebGL canvas.
+ * @returns {Lorenz} this
+ */
+Lorenz.prototype.draw = function() {
+    if (!this.ready)
+        return this;
+    var gl = this.gl;
     var width = gl.canvas.clientWidth;
     var height = gl.canvas.clientHeight;
     if (gl.canvas.width != width || gl.canvas.height != height) {
@@ -225,222 +312,194 @@ Lorenz.clear = function() {
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     }
     gl.clear(gl.COLOR_BUFFER_BIT);
+
+    var count = this.solutions.length;
+    if (count == 0)
+        return this;
+
+    var aspect = gl.canvas.width / gl.canvas.height;
+    var length = this.display._length;
+    var scale = this.display.scale;
+    var rotation = this.display.rotation;
+    var translation = this.display.translation;
+    var rho = this.params.rho;
+    var start = this.tail_index - 1;
+
+    gl.useProgram(this.programs.tail.program);
+    var attrib = this.programs.tail.attrib;
+    var uniform = this.programs.tail.uniform;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_index_buffer);
+    gl.vertexAttribPointer(attrib.index, 1, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_buffer);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.tail);
+    gl.uniform1f(uniform.aspect, aspect);
+    gl.uniform1f(uniform.scale, scale);
+    gl.uniform3fv(uniform.rotation, rotation);
+    gl.uniform3fv(uniform.translation, translation);
+    gl.uniform1f(uniform.rho, rho);
+    gl.uniform1f(uniform.start, start);
+    gl.uniform1f(uniform.max_length, length);
+    for (var i = 0; i < count; i++) {
+        var r = this.tail_colors[i * 3 + 0];
+        var g = this.tail_colors[i * 3 + 1];
+        var b = this.tail_colors[i * 3 + 2];
+        var offset = i * length * 4 * 3;
+        gl.vertexAttribPointer(attrib.point, 3, gl.FLOAT, false, 0, offset);
+        gl.uniform3f(uniform.color, r, g, b);
+        gl.uniform1f(uniform.tail_length, this.tail_length[i]);
+        gl.drawArrays(gl.LINE_LOOP, 0, length);
+    }
+
+    if (this.display.draw_heads) {
+        gl.useProgram(this.programs.head.program);
+        attrib = this.programs.head.attrib;
+        uniform = this.programs.head.uniform;
+        var start_head = start === 0 ? length - 1 : start - 1;
+        for (var s = 0; s < count; s++) {
+            var base = s * length * 3 + start_head * 3;
+            this.head[s * 3 + 0] = this.tail[base + 0];
+            this.head[s * 3 + 1] = this.tail[base + 1];
+            this.head[s * 3 + 2] = this.tail[base + 2];
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.head_buffer);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.head);
+        gl.vertexAttribPointer(attrib.point, 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_colors_buffer);
+        gl.vertexAttribPointer(attrib.color, 3, gl.FLOAT, false, 0, 0);
+        gl.uniform1f(uniform.aspect, aspect);
+        gl.uniform1f(uniform.scale, scale);
+        gl.uniform3fv(uniform.rotation, rotation);
+        gl.uniform3fv(uniform.translation, translation);
+        gl.uniform1f(uniform.rho, rho);
+        gl.drawArrays(gl.POINTS, 0, count);
+    }
+
+    return this;
 };
 
-Lorenz.aspect = function() {
-    return Lorenz.igloo.gl.canvas.width / Lorenz.igloo.gl.canvas.height;
+/**
+ * Create fresh tail buffers and views.
+ * The caller is responsible for copying the old data.
+ */
+Lorenz.prototype._reset_buffers = function() {
+    var gl = this.gl;
+    var count = this.solutions.length;
+    var length = this.display._length;
+    var buffer = new ArrayBuffer(count * 4 * 3 * length);
+    this.tail = new Float32Array(buffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, count * length * 4 * 3, gl.DYNAMIC_DRAW);
+    this.tail_length = new Float32Array(count);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_length_buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, count, gl.DYNAMIC_DRAW);
+    this.head = new Float32Array(count * 3);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.head_buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, count * 4 * 3, gl.DYNAMIC_DRAW);
 };
 
-Lorenz.prototype.step = function(dt) {
-    this.tick++;
-    Lorenz.lorenz(this.y, dt, Lorenz.sigma, Lorenz.beta, Lorenz.rho);
-    this.tail.values[this.tail.i * 3 + 0] = this.y[0];
-    this.tail.values[this.tail.i * 3 + 1] = this.y[1];
-    this.tail.values[this.tail.i * 3 + 2] = this.y[2];
-    this.tail.i = (this.tail.i + 1) % (this.tail.values.length / 3);
-    if (this.tail.length < this.tail.values.length / 3)
-        this.tail.length++;
+/**
+ * Add a new solution to the system.
+ * @param {number[3]} s
+ * @returns {Lorenz} this
+ */
+Lorenz.prototype.add = function(s) {
+    var gl = this.gl;
+    var length = this.display._length;
+    this.solutions.push(s.slice(0));
+    var count = this.solutions.length;
+
+    var old_colors = this.tail_colors;
+    this.tail_colors = new Float32Array(count * 3);
+    for (var i = 0; i < old_colors.length; i++)
+        this.tail_colors[i] = old_colors[i];
+    var new_color = Lorenz.color();
+    this.tail_colors[count * 3 - 3] = new_color[0];
+    this.tail_colors[count * 3 - 2] = new_color[1];
+    this.tail_colors[count * 3 - 1] = new_color[2];
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_colors_buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, count * 4 * 3, gl.STATIC_DRAW);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.tail_colors);
+
+    var old = this.tail;
+    var old_tail_length = this.tail_length;
+    this._reset_buffers();
+    for (var i = 0; i < old.length; i++)
+        this.tail[i] = old[i];
+    for (var i = 0; i < count - 1; i++)
+        this.tail_length[i] = old_tail_length[i];
+    return this;
 };
 
-Lorenz.prototype.drawTail = function() {
-    var gl = Lorenz.igloo.gl;
-    this.buffers.tail.update(this.tail.values);
-    Lorenz.programs.line.use()
-        .attrib('point', this.buffers.tail, 3)
-        .attrib('index', this.buffers.index, 1)
-        .uniform('aspect', Lorenz.aspect())
-        .uniform('scale', Lorenz.scale)
-        .uniform('rotation', Lorenz.rotation)
-        .uniform('translation', Lorenz.translation)
-        .uniform('color', this.color)
-        .uniform('len', this.tail.length)
-        .uniform('rho', Lorenz.rho)
-        .uniform('start', this.tail.i - 1)
-        .draw(gl.LINE_LOOP, this.tail.length);
-};
-
-Lorenz.prototype.drawHead = function() {
-    var gl = Lorenz.igloo.gl;
-    this.buffers.head.update(this.y);
-    Lorenz.programs.head.use()
-        .attrib('point', this.buffers.head, 3)
-        .uniform('aspect', Lorenz.aspect())
-        .uniform('scale', Lorenz.scale)
-        .uniform('rotation', Lorenz.rotation)
-        .uniform('translation', Lorenz.translation)
-        .uniform('color', this.color)
-        .uniform('rho', Lorenz.rho)
-        .draw(gl.POINTS, 1);
-};
-
-Lorenz.prototype.trim = function(length) {
-    function mod(x, y) {
-        // properly handles negatives
+/**
+ * Change the tail lengths.
+ * @param {number} length
+ * @returns {Lorenz} this
+ */
+Lorenz.prototype._trim = function(length) {
+    function mod(x, y) { // properly handles negatives
         return x - y * Math.floor(x / y);
     }
-    var values = new Float32Array(length * 3);
-    var newlen = Math.min(length, this.tail.length);
-    for (var n = 0; n < newlen; n++) {
-        var i = mod(this.tail.i - n - 1, this.tail.values.length / 3);
-        var o = newlen - n - 1;
-        values[o * 3 + 0] = this.tail.values[i * 3 + 0];
-        values[o * 3 + 1] = this.tail.values[i * 3 + 1];
-        values[o * 3 + 2] = this.tail.values[i * 3 + 2];
+    var count = this.solutions.length;
+    var oldlength = this.display._length;
+    this.display._length = length;
+    var old_tail = this.tail;
+    var old_tail_length = this.tail_length;
+    this._reset_buffers();
+    var actual = Math.min(length, oldlength);
+    for (var s = 0; s < count; s++) {
+        for (var n = 0; n < actual; n++) {
+            var i = mod(this.tail_index - n - 1, oldlength);
+            var o = actual - n - 1;
+            var obase = s * length * 3 + o * 3;
+            var ibase = s * oldlength * 3 + i * 3;
+            this.tail[obase + 0] = old_tail[ibase + 0];
+            this.tail[obase + 1] = old_tail[ibase + 1];
+            this.tail[obase + 2] = old_tail[ibase + 2];
+        }
+        this.tail_length[s] = Math.min(old_tail_length[s], actual);
     }
-    this.tail.i = newlen % (values.length / 3);
-    this.tail.values = values;
-    this.tail.length = newlen;
-    var index = new Array(this.tail.values.length / 3);
-    for (var i = 0; i < index.length; i++)
-        index[i] = i;
-    this.buffers.index.update(index);
+    this.tail_index = actual % length;
+    this.tail_index_buffer = Lorenz.create_index(this.gl, length);
+    return this;
 };
 
-/* UI stuff */
-
-function updateSliders() {
-    var sigma = document.querySelector('#sigma');
-    var beta = document.querySelector('#beta');
-    var rho = document.querySelector('#rho');
-    sigma.value = Lorenz.sigma;
-    beta.value = Lorenz.beta;
-    rho.value = Lorenz.rho;
-    var sigmaL = document.querySelector('#sigma-label');
-    var betaL = document.querySelector('#beta-label');
-    var rhoL = document.querySelector('#rho-label');
-    sigmaL.innerHTML = sigma.value;
-    betaL.innerHTML = beta.value;
-    rhoL.innerHTML = rho.value;
-}
-
-function slidersHandler(e) {
-    var sigma = document.querySelector('#sigma');
-    var beta = document.querySelector('#beta');
-    var rho = document.querySelector('#rho');
-    var sigmaL = document.querySelector('#sigma-label');
-    var betaL = document.querySelector('#beta-label');
-    var rhoL = document.querySelector('#rho-label');
-    Lorenz.sigma = parseFloat(sigma.value);
-    Lorenz.beta = parseFloat(beta.value);
-    Lorenz.rho = parseFloat(rho.value);
-    sigmaL.innerHTML = sigma.value;
-    betaL.innerHTML = beta.value;
-    rhoL.innerHTML = rho.value;
-}
-
-(function() {
-    updateSliders();
-    var sigma = document.querySelector('#sigma');
-    var beta = document.querySelector('#beta');
-    var rho = document.querySelector('#rho');
-    sigma.addEventListener('input', slidersHandler);
-    beta.addEventListener('input', slidersHandler);
-    rho.addEventListener('input', slidersHandler);
-}());
-
-function tailsHandler(e) {
-    var tails = document.querySelector('#tails');
-    Lorenz.tails = Math.pow(2, parseFloat(tails.value));
-    Lorenz.trimAll(Lorenz.tails);
-    var tailsL = document.querySelector('#tails-label');
-    tailsL.innerHTML = Lorenz.tails;
-}
-
-(function() {
-    var tails = document.querySelector('#tails');
-    tails.value = Math.log(Lorenz.tails) * Math.LOG2E;
-    tails.addEventListener('input', tailsHandler);
-    var tailsL = document.querySelector('#tails-label');
-    tailsL.innerHTML = Lorenz.tails;
-}());
-
-(function() {
-    var preset = document.querySelector('#preset');
-    preset.addEventListener('change', function() {
-        if (preset.value === 'chaos') {
-            Lorenz.curves.length = 0;
-            Lorenz.addRandom();
-            for (var i = 0; i < 31; i++)
-                Lorenz.addClone();
-        } else if (preset.value === 'gentle') {
-            while (Lorenz.curves.length < 32)
-                Lorenz.addRandom();
-            Lorenz.rotationd[0] = 0;
-            Lorenz.rotationd[1] = 0;
-            Lorenz.rotationd[2] = 0.007;
-            Lorenz.damping = false;
-        } else if (preset.value === 'bendy') {
-            while (Lorenz.curves.length < 32)
-                Lorenz.addRandom();
-            Lorenz.sigma = 17.24;
-            Lorenz.beta = 1.1;
-            Lorenz.rho = 217;
-            Lorenz.scale = 1 / 65;
-            updateSliders();
-        }
-    });
-}());
-
-/* High-level Utility Functions */
-
-Lorenz.trimAll = function(length) {
-    Lorenz.curves.forEach(function(c) {
-        c.trim(length);
-    });
+/**
+ * Remove all solutions.
+ * @returns {Lorenz} this
+ */
+Lorenz.prototype.empty = function() {
+    this.solutions = [];
+    this.tail = [];
+    this.tail_index = 0;
+    this.tail_colors = [];
+    this.head = [];
+    this.tail_length = [];
+    return this;
 };
 
-Lorenz.addRandom = function() {
-    var y = [
-        Math.random() * 50,
-        Math.random() * 50,
-        Math.random() * 50,
-    ];
-    Lorenz.curves.push(new Lorenz(y));
-};
+Object.defineProperty(Lorenz.prototype, 'length', {
+    get: function() {
+        return this.display._length;
+    },
+    set: function(v) {
+        this._trim(v);
+        return this.display._length;
+    }
+});
 
-Lorenz.addClone = function() {
-    var i = Math.floor(Math.random() * Lorenz.curves.length);
-    var y = Lorenz.curves[i].y.slice(0);
-    y[0] += (Math.random() - 0.5) / 10000;
-    y[1] += (Math.random() - 0.5) / 10000;
-    y[2] += (Math.random() - 0.5) / 10000;
-    Lorenz.curves.push(new Lorenz(y));
-};
-
-Lorenz.clearAll = function() {
-    Lorenz.curves.length = 0;
-};
-
-/* Main loop */
-
-Lorenz.curves = [];
-
-(function() {
-    for (var i = 0; i < Lorenz.colors.length; i++)
-        Lorenz.addRandom();
-
+/**
+ * Initialize and start running a demo.
+ * @returns {Lorenz}
+ */
+Lorenz.run = function(canvas) {
+    var lorenz = new Lorenz(canvas);
+    for (var i = 0; i < 13; i++)
+        lorenz.add(Lorenz.generate());
     function go() {
-        Lorenz.rotation[0] += Lorenz.rotationd[0];
-        Lorenz.rotation[1] += Lorenz.rotationd[1];
-        Lorenz.rotation[2] += Lorenz.rotationd[2];
-        if (Lorenz.damping) {
-            var damping = 0.96;
-            Lorenz.rotationd[0] *= damping;
-            Lorenz.rotationd[1] *= damping;
-            Lorenz.rotationd[2] *= damping;
-        }
-        Lorenz.clear();
-        for (var i = 0; i < Lorenz.curves.length; i++) {
-            if (!Lorenz.paused) 
-                for (var s = 0; s < Lorenz.stepPerFrame; s++)
-                    Lorenz.curves[i].step(Lorenz.stepSize);
-            Lorenz.curves[i].drawTail();
-        }
-        if (Lorenz.showHeads)
-            for (var i = 0; i < Lorenz.curves.length; i++)
-                Lorenz.curves[i].drawHead();
+        lorenz.step();
+        lorenz.draw();
         requestAnimationFrame(go);
     }
-    go();
-}());
-
+    requestAnimationFrame(go);
+    return lorenz;
+};
