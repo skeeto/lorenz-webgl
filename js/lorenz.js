@@ -31,15 +31,15 @@ function Lorenz(canvas) {
     };
 
     this.solutions = [];
-    this.tail = [];
+    this.tail = new Float32Array(0);
     this.tail_buffer = gl.createBuffer();
     this.tail_index = 0;
-    this.tail_colors = [];
+    this.tail_colors = new Float32Array(0);
     this.tail_colors_buffer = gl.createBuffer();
     this.tail_index_buffer = Lorenz.create_index(gl, this.display._length);
-    this.head = [];
+    this.head = new Float32Array(0);
     this.head_buffer = gl.createBuffer();
-    this.tail_length = [];
+    this.tail_length = new Float32Array(0);
     this.tail_length_buffer = gl.createBuffer();
 
     this.programs = {
@@ -414,8 +414,7 @@ Lorenz.prototype.add = function(s) {
 
     var old_colors = this.tail_colors;
     this.tail_colors = new Float32Array(count * 3);
-    for (var i = 0; i < old_colors.length; i++)
-        this.tail_colors[i] = old_colors[i];
+    this.tail_colors.set(old_colors);
     var new_color = Lorenz.color();
     this.tail_colors[count * 3 - 3] = new_color[0];
     this.tail_colors[count * 3 - 2] = new_color[1];
@@ -427,10 +426,8 @@ Lorenz.prototype.add = function(s) {
     var old = this.tail;
     var old_tail_length = this.tail_length;
     this._reset_buffers();
-    for (var i = 0; i < old.length; i++)
-        this.tail[i] = old[i];
-    for (var i = 0; i < count - 1; i++)
-        this.tail_length[i] = old_tail_length[i];
+    this.tail.set(old);
+    this.tail_length.set(old_tail_length);
     return this;
 };
 
@@ -473,11 +470,11 @@ Lorenz.prototype._trim = function(length) {
  */
 Lorenz.prototype.empty = function() {
     this.solutions = [];
-    this.tail = [];
+    this.tail = new Float32Array(0);
     this.tail_index = 0;
-    this.tail_colors = [];
-    this.head = [];
-    this.tail_length = [];
+    this.tail_colors = new Float32Array(0);
+    this.head = new Float32Array(0);
+    this.tail_length = new Float32Array(0);
     return this;
 };
 
