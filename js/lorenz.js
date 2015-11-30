@@ -55,7 +55,11 @@ function Lorenz(canvas) {
         }
     };
     var shaders = [
-        'project.vert', 'tail.vert', 'tail.frag', 'head.vert', 'head.frag'
+        'glsl/project.vert',
+        'glsl/tail.vert',
+        'glsl/tail.frag',
+        'glsl/head.vert',
+        'glsl/head.frag'
     ];
     Lorenz.fetch(shaders, function(project, tail_v, tail_f, head_v, head_f) {
         var tail = Lorenz.compile(gl, project + tail_v, tail_f);
