@@ -40,7 +40,6 @@ function Lorenz(canvas) {
     this.head = new Float32Array(0);
     this.head_buffer = gl.createBuffer();
     this.tail_length = new Float32Array(0);
-    this.tail_length_buffer = gl.createBuffer();
 
     this.programs = {
         tail: {
@@ -383,6 +382,7 @@ Lorenz.prototype.draw = function() {
     gl.uniform1f(uniform.start, start);
     gl.uniform1f(uniform.max_length, length);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_buffer);
+    gl.vertexAttribPointer(attrib.point, 3, gl.FLOAT, false, 0, offset);
     for (var i = 0; i < count; i++) {
         var r = this.tail_colors[i * 3 + 0];
         var g = this.tail_colors[i * 3 + 1];
@@ -443,8 +443,6 @@ Lorenz.prototype._grow_buffers = function() {
         var old_tail_length = this.tail_length;
         this.tail_length = new Float32Array(count);
         this.tail_length.set(old_tail_length);
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_length_buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, count, gl.STATIC_DRAW);
     }
     if (this.tail_colors.length < count * 3) {
         this.tail_colors = new Float32Array(count * 3);
