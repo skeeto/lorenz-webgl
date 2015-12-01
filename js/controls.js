@@ -1,5 +1,7 @@
 function Controls(lorenz) {
     this.lorenz = lorenz;
+    this.listeners = [];
+
     this.chain = [];
     this.button = null;
 
@@ -153,6 +155,8 @@ Controls.prototype.delta = function(scale) {
 
 Controls.prototype.add = function() {
     this.lorenz.add(Lorenz.generate());
+    for (var n = 0; n < this.listeners.length; n++)
+        this.listeners[n]();
 };
 
 Controls.prototype.clone = function() {
@@ -162,10 +166,14 @@ Controls.prototype.clone = function() {
     s[1] += (Math.random() - 0.5) / 10000;
     s[2] += (Math.random() - 0.5) / 10000;
     this.lorenz.add(s);
+    for (var n = 0; n < this.listeners.length; n++)
+        this.listeners[n]();
 };
 
 Controls.prototype.clear = function() {
     this.lorenz.empty();
+    for (var n = 0; n < this.listeners.length; n++)
+        this.listeners[n]();
 };
 
 Controls.prototype.pause = function() {
