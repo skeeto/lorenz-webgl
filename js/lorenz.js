@@ -258,6 +258,31 @@ Lorenz.lorenz = function(s, dt, σ, β, ρ) {
 };
 
 /**
+ * Update the tail WebGL buffer between two indexes.
+ * @param {number} a, with a <= b
+ * @param {number} b
+ */
+Lorenz.prototype._update = function(a, b) {
+    var gl = this.gl;
+    var length = this.display._length;
+    var buffer = this.tail.buffer;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_buffer);
+    if (a == 0 && b == length - 1) {
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.tail);
+    } else {
+        var sublength = b - a + 1;
+        for (var s = 0; s < this.solutions.length; s++)  {
+            var offset = s * 3 * length * 4 + 3 * a * 4;
+            /* As far as I can tell, this buffer view is optimized out.
+             * Therefore no allocation actually happens. Whew!
+             */
+            var view = new Float32Array(buffer, offset, sublength * 3);
+            gl.bufferSubData(gl.ARRAY_BUFFER, offset, view);
+        }
+    }
+};
+
+/**
  * Advance the system state by one frame.
  * @returns {Lorenz} this
  */
@@ -271,6 +296,8 @@ Lorenz.prototype.step = function() {
         var dt = this.params.step_size;
         var length = this.display._length;
         var tail = this.tail;
+        var start_index = this.tail_index;
+        var stop_index = 0;
         for (var s = 0; s < this.params.steps_per_frame; s++) {
             var tail_index = this.tail_index;
             this.tail_index = (this.tail_index + 1) % length;
@@ -283,6 +310,13 @@ Lorenz.prototype.step = function() {
                 var next = this.tail_length[i] + 1;
                 this.tail_length[i] = Math.min(next, length);
             }
+            stop_index  = tail_index;
+        }
+        if (stop_index >= start_index) {
+            this._update(start_index, stop_index);
+        } else {
+            this._update(start_index, length - 1);
+            this._update(0, stop_index);
         }
     }
     this.display.rotation[0] += this.display.rotationd[0];
@@ -341,8 +375,6 @@ Lorenz.prototype.draw = function() {
     var uniform = this.programs.tail.uniform;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_index_buffer);
     gl.vertexAttribPointer(attrib.index, 1, gl.FLOAT, false, 0, 0);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_buffer);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.tail);
     gl.uniform1f(uniform.aspect, aspect);
     gl.uniform1f(uniform.scale, scale);
     gl.uniform3fv(uniform.rotation, rotation);
@@ -350,6 +382,7 @@ Lorenz.prototype.draw = function() {
     gl.uniform1f(uniform.rho, rho);
     gl.uniform1f(uniform.start, start);
     gl.uniform1f(uniform.max_length, length);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_buffer);
     for (var i = 0; i < count; i++) {
         var r = this.tail_colors[i * 3 + 0];
         var g = this.tail_colors[i * 3 + 1];
@@ -404,6 +437,7 @@ Lorenz.prototype._grow_buffers = function() {
         this.tail.set(old_tail);
         gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_buffer);
         gl.bufferData(gl.ARRAY_BUFFER, count * length * 4 * 3, gl.DYNAMIC_DRAW);
+        this._update(0, length - 1);
     }
     if (this.tail_length.length < count) {
         var old_tail_length = this.tail_length;
@@ -475,6 +509,7 @@ Lorenz.prototype._trim = function(length) {
     }
     this.tail_index = actual % length;
     this.tail_index_buffer = Lorenz.create_index(this.gl, length);
+    this._update(0, length - 1);
     return this;
 };
 
