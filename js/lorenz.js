@@ -457,7 +457,8 @@ Lorenz.prototype._trim = function(length) {
     var count = this.solutions.length;
     var oldlength = this.display._length;
     this.display._length = length;
-    var old_tail = this.tail.slice(0);
+    var old_tail = new Float32Array(this.tail.length);
+    old_tail.set(this.tail);
     this._grow_buffers();
     var actual = Math.min(length, oldlength);
     for (var s = 0; s < count; s++) {
