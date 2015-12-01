@@ -118,7 +118,7 @@ Lorenz.fetch = function(urls, callback) {
             xhr.open('GET', urls[i], true);
             xhr.onload = function() {
                 results[i] = xhr.responseText;
-                if (--countdown == 0)
+                if (--countdown === 0)
                     callback.apply(results, results);
             };
             xhr.send();
@@ -181,31 +181,26 @@ Lorenz.generate = function() {
 /**
  * @returns {number[3]}
  */
-Lorenz.color = (function() {
-    var i = 0;
+Lorenz.color = function(i) {
     var colors = [
-        [0x8d, 0xd3, 0xc7],
-        [0xff, 0xff, 0xb3],
-        [0xbe, 0xba, 0xda],
-        [0xfb, 0x80, 0x72],
-        [0x80, 0xb1, 0xd3],
-        [0xfd, 0xb4, 0x62],
-        [0xb3, 0xde, 0x69],
-        [0xfc, 0xcd, 0xe5],
-        [0xd9, 0xd9, 0xd9],
-        [0xbc, 0x80, 0xbd],
-        [0xcc, 0xeb, 0xc5],
-        [0xff, 0xed, 0x6f],
-        [0xff, 0xff, 0xff]
+        0x8d, 0xd3, 0xc7,
+        0xff, 0xff, 0xb3,
+        0xbe, 0xba, 0xda,
+        0xfb, 0x80, 0x72,
+        0x80, 0xb1, 0xd3,
+        0xfd, 0xb4, 0x62,
+        0xb3, 0xde, 0x69,
+        0xfc, 0xcd, 0xe5,
+        0xd9, 0xd9, 0xd9,
+        0xbc, 0x80, 0xbd,
+        0xcc, 0xeb, 0xc5,
+        0xff, 0xed, 0x6f,
+        0xff, 0xff, 0xff
     ];
-    return function() {
-        var color = colors[i++ % colors.length].slice(0);
-        color[0] = color[0] / 255;
-        color[1] = color[1] / 255;
-        color[2] = color[2] / 255;
-        return color;
-    };
-}());
+    var base = (i * 3) % colors.length;
+    return colors.slice(base, base + 3).map(function(x) { return x / 255; });
+};
+
 
 /**
  * Update s to the next Lorenz state using RK4.
@@ -307,6 +302,7 @@ Lorenz.prototype.step = function() {
 Lorenz.prototype.draw = function() {
     if (!this.ready)
         return this;
+
     var gl = this.gl;
     var width = gl.canvas.clientWidth;
     var height = gl.canvas.clientHeight;
@@ -382,23 +378,47 @@ Lorenz.prototype.draw = function() {
 };
 
 /**
- * Create fresh tail buffers and views.
- * The caller is responsible for copying the old data.
+ * Adjust all buffer sizes if needed.
  */
-Lorenz.prototype._reset_buffers = function() {
+Lorenz.prototype._grow_buffers = function() {
+    function next2(x) {
+        return Math.pow(2, Math.ceil(Math.log(x) * Math.LOG2E));
+    }
     var gl = this.gl;
-    var count = this.solutions.length;
+    var count = next2(this.solutions.length);
     var length = this.display._length;
-    var buffer = new ArrayBuffer(count * 4 * 3 * length);
-    this.tail = new Float32Array(buffer);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, count * length * 4 * 3, gl.DYNAMIC_DRAW);
-    this.tail_length = new Float32Array(count);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_length_buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, count, gl.DYNAMIC_DRAW);
-    this.head = new Float32Array(count * 3);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.head_buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, count * 4 * 3, gl.DYNAMIC_DRAW);
+    if (this.tail.length < count * length * 3) {
+        var old_tail = this.tail;
+        this.tail = new Float32Array(count * length * 3);
+        this.tail.set(old_tail);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, count * length * 4 * 3, gl.DYNAMIC_DRAW);
+    }
+    if (this.tail_length.length < count) {
+        var old_tail_length = this.tail_length;
+        this.tail_length = new Float32Array(count);
+        this.tail_length.set(old_tail_length);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_length_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, count, gl.STATIC_DRAW);
+    }
+    if (this.tail_colors.length < count * 3) {
+        this.tail_colors = new Float32Array(count * 3);
+        for (var i = 0; i < this.tail_colors.length; i++) {
+            var color = Lorenz.color(i);
+            this.tail_colors[i * 3 + 0] = color[0];
+            this.tail_colors[i * 3 + 1] = color[1];
+            this.tail_colors[i * 3 + 2] = color[2];
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_colors_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, count * 4 * 3, gl.STATIC_DRAW);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.tail_colors);
+    }
+    if (this.head.length < count * 3) {
+        // No copy needed since it's always set right before draw.
+        this.head = new Float32Array(count * 3);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.head_buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, count * 3 * 4, gl.DYNAMIC_DRAW);
+    }
 };
 
 /**
@@ -410,24 +430,7 @@ Lorenz.prototype.add = function(s) {
     var gl = this.gl;
     var length = this.display._length;
     this.solutions.push(s.slice(0));
-    var count = this.solutions.length;
-
-    var old_colors = this.tail_colors;
-    this.tail_colors = new Float32Array(count * 3);
-    this.tail_colors.set(old_colors);
-    var new_color = Lorenz.color();
-    this.tail_colors[count * 3 - 3] = new_color[0];
-    this.tail_colors[count * 3 - 2] = new_color[1];
-    this.tail_colors[count * 3 - 1] = new_color[2];
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_colors_buffer);
-    gl.bufferData(gl.ARRAY_BUFFER, count * 4 * 3, gl.STATIC_DRAW);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.tail_colors);
-
-    var old = this.tail;
-    var old_tail_length = this.tail_length;
-    this._reset_buffers();
-    this.tail.set(old);
-    this.tail_length.set(old_tail_length);
+    this._grow_buffers();
     return this;
 };
 
@@ -443,9 +446,8 @@ Lorenz.prototype._trim = function(length) {
     var count = this.solutions.length;
     var oldlength = this.display._length;
     this.display._length = length;
-    var old_tail = this.tail;
-    var old_tail_length = this.tail_length;
-    this._reset_buffers();
+    var old_tail = this.tail.slice(0);
+    this._grow_buffers();
     var actual = Math.min(length, oldlength);
     for (var s = 0; s < count; s++) {
         for (var n = 0; n < actual; n++) {
@@ -457,7 +459,7 @@ Lorenz.prototype._trim = function(length) {
             this.tail[obase + 1] = old_tail[ibase + 1];
             this.tail[obase + 2] = old_tail[ibase + 2];
         }
-        this.tail_length[s] = Math.min(old_tail_length[s], actual);
+        this.tail_length[s] = Math.min(this.tail_length[s], actual);
     }
     this.tail_index = actual % length;
     this.tail_index_buffer = Lorenz.create_index(this.gl, length);
