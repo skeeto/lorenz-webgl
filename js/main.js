@@ -17,6 +17,12 @@ window.addEventListener('load', function() {
         h.style.display = 'none';
     });
 
+    var stats = document.querySelector('#stats');
+    window.setInterval(function() {
+        var fps = lorenz.fps;
+        var count = lorenz.solutions.length.toLocaleString();
+        stats.textContent = count + ' @ ' + fps + ' FPS';
+    }, 1000);
 
     var preset = document.querySelector('#preset');
     preset.addEventListener('change', function() {

@@ -63,3 +63,11 @@ canvas {
     width: 100%;
     margin-top: 10px;
 }
+
+#stats {
+    position: absolute;
+    bottom: 5px;
+    left: 5px;
+    font-weight: bold;
+    font-size: 14px;
+}

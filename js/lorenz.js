@@ -99,6 +99,9 @@ function Lorenz(canvas) {
     }.bind(this));
 
     this.frame = 0;
+    this.fps = 0;
+    this.accum = 0;
+    this.second = Math.floor(Date.now() / 1000);
     this.ready = false;
 }
 
@@ -292,6 +295,14 @@ Lorenz.prototype.step = function() {
         this.display.rotationd[2] *= damping;
     }
     this.frame++;
+    var second = Math.floor(Date.now() / 1000);
+    if (second !== this.second) {
+        this.fps = this.accum;
+        this.accum = 1;
+        this.second = second;
+    } else {
+        this.accum++;
+    }
     return this;
 };
 
