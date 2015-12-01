@@ -86,6 +86,7 @@ function Lorenz(canvas) {
         attrib = this.programs.head.attrib;
         attrib.point = gl.getAttribLocation(head, 'point');
         attrib.color = gl.getAttribLocation(head, 'color');
+        gl.enableVertexAttribArray(this.programs.head.attrib.point);
         gl.enableVertexAttribArray(this.programs.head.attrib.color);
         uniform = this.programs.head.uniform;
         uniform.aspect = gl.getUniformLocation(head, 'aspect');
