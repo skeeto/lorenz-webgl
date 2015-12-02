@@ -36,7 +36,9 @@ function Lorenz(canvas) {
     this.tail_index = 0;
     this.tail_colors = new Float32Array(0);
     this.tail_colors_buffer = gl.createBuffer();
-    this.tail_index_buffer = Lorenz.create_index(gl, this.display._length);
+    var length = this.display._length;
+    this.tail_index_buffer = Lorenz.create_index_array(gl, length);
+    this.tail_element_buffer = Lorenz.create_element_array(gl, length);
     this.head = new Float32Array(0);
     this.head_buffer = gl.createBuffer();
     this.tail_length = new Float32Array(0);
@@ -78,7 +80,6 @@ function Lorenz(canvas) {
         uniform.rho = gl.getUniformLocation(tail, 'rho');
         uniform.tail_length = gl.getUniformLocation(tail, 'tail_length');
         uniform.max_length = gl.getUniformLocation(tail, 'max_length');
-        uniform.start = gl.getUniformLocation(tail, 'start');
 
         var head = Lorenz.compile(gl, project + head_v, head_f);
         gl.useProgram(head);
@@ -159,10 +160,24 @@ Lorenz.compile = function(gl, vert, frag) {
 /**
  * @returns {WebGLBuffer}
  */
-Lorenz.create_index = function(gl, length) {
-    var data = new Float32Array(length);
-    for (var i = 0; i < length; i++)
-        data[i] = i;
+Lorenz.create_element_array = function(gl, length) {
+    var data = new Uint16Array(length * 2);
+    for (var i = 0; i < data.length; i++)
+        data[i] = (length * 2 - i - 1) % length;
+    var buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, data, gl.STATIC_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    return buffer;
+};
+
+/**
+ * @returns {WebGLBuffer}
+ */
+Lorenz.create_index_array = function(gl, length) {
+    var data = new Float32Array(length * 2);
+    for (var i = 0; i < data.length; i++)
+        data[i] = (length * 2 - i - 1) % length;
     var buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
@@ -368,22 +383,23 @@ Lorenz.prototype.draw = function() {
     var rotation = this.display.rotation;
     var translation = this.display.translation;
     var rho = this.params.rho;
-    var start = this.tail_index - 1;
+    var start = (this.tail_index - 1 + length) % length;
 
     gl.useProgram(this.programs.tail.program);
     var attrib = this.programs.tail.attrib;
     var uniform = this.programs.tail.uniform;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_index_buffer);
-    gl.vertexAttribPointer(attrib.index, 1, gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(attrib.index, 1, gl.FLOAT, false, 0,
+                           (length - start - 1) * 4);
     gl.uniform1f(uniform.aspect, aspect);
     gl.uniform1f(uniform.scale, scale);
     gl.uniform3fv(uniform.rotation, rotation);
     gl.uniform3fv(uniform.translation, translation);
     gl.uniform1f(uniform.rho, rho);
-    gl.uniform1f(uniform.start, start);
     gl.uniform1f(uniform.max_length, length);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_buffer);
     gl.vertexAttribPointer(attrib.point, 3, gl.FLOAT, false, 0, offset);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.tail_element_buffer);
     for (var i = 0; i < count; i++) {
         var r = this.tail_colors[i * 3 + 0];
         var g = this.tail_colors[i * 3 + 1];
@@ -392,16 +408,16 @@ Lorenz.prototype.draw = function() {
         gl.vertexAttribPointer(attrib.point, 3, gl.FLOAT, false, 0, offset);
         gl.uniform3f(uniform.color, r, g, b);
         gl.uniform1f(uniform.tail_length, this.tail_length[i]);
-        gl.drawArrays(gl.LINE_LOOP, 0, length);
+        gl.drawElements(gl.LINE_STRIP, length, gl.UNSIGNED_SHORT,
+                        (length - start - 1) * 2);
     }
 
     if (this.display.draw_heads) {
         gl.useProgram(this.programs.head.program);
         attrib = this.programs.head.attrib;
         uniform = this.programs.head.uniform;
-        var start_head = start === 0 ? length - 1 : start - 1;
         for (var s = 0; s < count; s++) {
-            var base = s * length * 3 + start_head * 3;
+            var base = s * length * 3 + start * 3;
             this.head[s * 3 + 0] = this.tail[base + 0];
             this.head[s * 3 + 1] = this.tail[base + 1];
             this.head[s * 3 + 2] = this.tail[base + 2];
@@ -507,7 +523,8 @@ Lorenz.prototype._trim = function(length) {
         this.tail_length[s] = Math.min(this.tail_length[s], actual);
     }
     this.tail_index = actual % length;
-    this.tail_index_buffer = Lorenz.create_index(this.gl, length);
+    this.tail_index_buffer = Lorenz.create_index_array(this.gl, length);
+    this.tail_element_buffer = Lorenz.create_element_array(this.gl, length);
     this._update(0, length - 1);
     return this;
 };
