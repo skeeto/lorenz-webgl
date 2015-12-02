@@ -25,7 +25,7 @@ function Lorenz(canvas) {
         rotation: [1.65, 3.08, -0.93],
         rotationd: [0, 0, 0],
         translation: [0, 0.075, 1.81],
-        draw_heads: true,
+        draw_heads: false,
         damping: true,
         _length: 512 // change through length getter/setter
     };
