@@ -17,14 +17,13 @@ window.addEventListener('load', function() {
         h.style.display = 'none';
     });
 
+    var stats = document.querySelector('#stats');
     function update_stats() {
         var fps = lorenz.fps;
         var count = lorenz.solutions.length.toLocaleString();
         stats.textContent = count + ' @ ' + fps + ' FPS';
     }
-
-    var stats = document.querySelector('#stats');
-    window.setInterval(update_stats(), 1000);
+    window.setInterval(update_stats, 1000);
     controls.listeners.push(update_stats);
 
     var preset = document.querySelector('#preset');
