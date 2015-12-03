@@ -398,16 +398,15 @@ Lorenz.prototype.draw = function() {
     gl.uniform1f(uniform.rho, rho);
     gl.uniform1f(uniform.max_length, length);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.tail_buffer);
-    gl.vertexAttribPointer(attrib.point, 3, gl.FLOAT, false, 0, offset);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.tail_element_buffer);
     for (var i = 0; i < count; i++) {
         var r = this.tail_colors[i * 3 + 0];
         var g = this.tail_colors[i * 3 + 1];
         var b = this.tail_colors[i * 3 + 2];
         var offset = i * length * 4 * 3;
-        gl.vertexAttribPointer(attrib.point, 3, gl.FLOAT, false, 0, offset);
         gl.uniform3f(uniform.color, r, g, b);
         gl.uniform1f(uniform.tail_length, this.tail_length[i]);
+        gl.vertexAttribPointer(attrib.point, 3, gl.FLOAT, false, 0, offset);
         gl.drawElements(gl.LINE_STRIP, length, gl.UNSIGNED_SHORT,
                         (length - start - 1) * 2);
     }
