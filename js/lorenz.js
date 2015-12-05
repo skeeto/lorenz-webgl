@@ -43,18 +43,7 @@ function Lorenz(canvas) {
     this.head_buffer = gl.createBuffer();
     this.tail_length = new Float32Array(0);
 
-    this.programs = {
-        tail: {
-            program: null,
-            attrib: {},
-            uniform: {}
-        },
-        head: {
-            program: null,
-            attrib: {},
-            uniform: {}
-        }
-    };
+    this.programs = {};
     var shaders = [
         'glsl/project.vert',
         'glsl/tail.vert',
@@ -63,39 +52,11 @@ function Lorenz(canvas) {
         'glsl/head.frag'
     ];
     Lorenz.fetch(shaders, function(project, tail_v, tail_f, head_v, head_f) {
-        var tail = Lorenz.compile(gl, project + tail_v, tail_f);
-        gl.useProgram(tail);
-        this.programs.tail.program = tail;
-        var attrib = this.programs.tail.attrib;
-        attrib.point = gl.getAttribLocation(tail, 'point');
-        attrib.index = gl.getAttribLocation(tail, 'index');
-        gl.enableVertexAttribArray(this.programs.tail.attrib.point);
-        gl.enableVertexAttribArray(this.programs.tail.attrib.index);
-        var uniform = this.programs.tail.uniform;
-        uniform.aspect = gl.getUniformLocation(tail, 'aspect');
-        uniform.scale = gl.getUniformLocation(tail, 'scale');
-        uniform.rotation = gl.getUniformLocation(tail, 'rotation');
-        uniform.translation = gl.getUniformLocation(tail, 'translation');
-        uniform.color = gl.getUniformLocation(tail, 'color');
-        uniform.rho = gl.getUniformLocation(tail, 'rho');
-        uniform.tail_length = gl.getUniformLocation(tail, 'tail_length');
-        uniform.max_length = gl.getUniformLocation(tail, 'max_length');
-
-        var head = Lorenz.compile(gl, project + head_v, head_f);
-        gl.useProgram(head);
-        this.programs.head.program = head;
-        attrib = this.programs.head.attrib;
-        attrib.point = gl.getAttribLocation(head, 'point');
-        attrib.color = gl.getAttribLocation(head, 'color');
-        gl.enableVertexAttribArray(this.programs.head.attrib.point);
-        gl.enableVertexAttribArray(this.programs.head.attrib.color);
-        uniform = this.programs.head.uniform;
-        uniform.aspect = gl.getUniformLocation(head, 'aspect');
-        uniform.scale = gl.getUniformLocation(head, 'scale');
-        uniform.rotation = gl.getUniformLocation(head, 'rotation');
-        uniform.translation = gl.getUniformLocation(head, 'translation');
-        uniform.rho = gl.getUniformLocation(head, 'rho');
-
+        this.programs.tail = Lorenz.compile(gl, project + tail_v, tail_f);
+        this.programs.head = Lorenz.compile(gl, project + head_v, head_f);
+        /* Both use two attrib arrays, so just turn them on now. */
+        gl.enableVertexAttribArray(0);
+        gl.enableVertexAttribArray(1);
         this.ready = true;
     }.bind(this));
 
@@ -135,7 +96,7 @@ Lorenz.fetch = function(urls, callback) {
  * @param {WebGLRenderingContext} gl
  * @param {string} vert
  * @param {string} frag
- * @returns {WebGLProgram}
+ * @returns {Object}
  */
 Lorenz.compile = function(gl, vert, frag) {
     var v = gl.createShader(gl.VERTEX_SHADER);
@@ -154,7 +115,24 @@ Lorenz.compile = function(gl, vert, frag) {
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS))
         throw new Error(gl.getProgramInfoLog(p));
-    return p;
+    var result = {
+        program: p,
+        attrib: {},
+        uniform: {}
+    };
+    var nattrib = gl.getProgramParameter(p, gl.ACTIVE_ATTRIBUTES);
+    for (var a = 0; a < nattrib; a++) {
+        var name = gl.getActiveAttrib(p, a).name;
+        var location = gl.getAttribLocation(p, name);
+        result.attrib[name] = location;
+    }
+    var nuniform = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (var u = 0; u < nuniform; u++) {
+        name = gl.getActiveUniform(p, u).name;
+        location = gl.getUniformLocation(p, name);
+        result.uniform[name] = location;
+    }
+    return result;
 };
 
 /**
