@@ -28,7 +28,7 @@ function Controls(lorenz) {
         rho(value);
     };
 
-    this.bind('#length', '#length-label', function(value) {
+    this.set_length = this.bind('#length', '#length-label', function(value) {
         var length = Math.pow(2, parseFloat(value));
         lorenz.length = length;
         return length;
@@ -108,7 +108,17 @@ function Controls(lorenz) {
             this.lorenz.display.draw_heads = !this.lorenz.display.draw_heads;
         else if (e.which == 'd'.charCodeAt(0))
             this.lorenz.display.damping = !this.lorenz.display.damping;
-    }.bind(this));
+        else if (e.which == '['.charCodeAt(0) && lorenz.length > 4)
+            this.set_length({
+                input: Math.log(lorenz.length /= 2) * Math.LOG2E,
+                label: lorenz.length
+            });
+        else if (e.which == ']'.charCodeAt(0) && lorenz.length < 32768)
+            this.set_length({
+                input: Math.log(lorenz.length *= 2) * Math.LOG2E,
+                label: lorenz.length
+            });
+   }.bind(this));
 
     window.addEventListener('touchmove', function(e) {
         e.preventDefault();
